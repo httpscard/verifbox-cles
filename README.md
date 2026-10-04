@@ -60,7 +60,7 @@ Both must show the fingerprint above, which must also match `verifbox-cles.json`
 2. Double-click it: it opens in your browser, on Windows, Mac or Linux.
 3. Drop the proof (`.verifbox.json`) and the original file.
 
-The page works without any internet connection and cannot make any network request. The public key file is included in it; its SHA-256 is shown at the bottom of the page, to compare with the fingerprint above.
+The page works without any internet connection and cannot make any network request. The public key file is included in it; its SHA-256 is shown at the bottom of the page, to compare with the fingerprint above. Only the keys included in the page are trusted as roots: a key file loaded by hand can only add keys attested by a trusted key, or mark known keys as retired or revoked. It can never add a root key or lift a revocation. Such a file can therefore cause a proof to be refused, never to be accepted. The Bitcoin block number shown offline is read from the .ots file itself and is not verified against Bitcoin.
 
 ### In Python
 
@@ -69,7 +69,19 @@ pip install cryptography dilithium-py
 python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
 ```
 
-The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle and the DNS publication, without contacting the VerifBox service. Specification: https://verifbox.com/specification
+The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle and the DNS publication, without contacting the VerifBox service. The root key is pinned in the script by the SHA-256 of its two public keys. Specification: https://verifbox.com/specification
+
+## Bundled cryptographic libraries
+
+The offline page embeds the following libraries in **readable, unminified** form, each preceded by a `// node_modules/...` marker naming its source file, so that the code can be compared with the official npm packages (MIT licence, [noble](https://paulmillr.com/noble/) by Paul Miller):
+
+| Package | Version | npm integrity |
+|---|---|---|
+| `@noble/post-quantum` (ML-DSA-65) | 0.7.1 | `sha512-+P9981IiAnVh+rmcubozzVwrEy3XsN/tMhTnvsjV9VDaYpOnNCqWqKo2FLWxbu92YHfjGIlE5XnW175UK+ln+Q==` |
+| `@noble/curves` (Ed25519) | 2.4.0 | `sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==` |
+| `@noble/hashes` (SHA-256) | 2.4.0 | `sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==` |
+
+Revoked keys always fail in the offline page: without an internet connection, it cannot confirm that a Bitcoin anchor is really recorded in a block, so it cannot safely accept a proof signed by a revoked key. Use the Verify page of verifbox.com for that case.
 
 ## Key rotation
 
@@ -87,6 +99,6 @@ Il permet de contrôler le fichier de clés de VerifBox **sans faire confiance a
 
 Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC. Empreinte SHA-256 du fichier `verifbox-cles.json` : `e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d`.
 
-**Vérifier une preuve sans compétence technique** : téléchargez `verifbox-verify-offline.html` depuis ce dépôt, ouvrez-le d’un double-clic dans votre navigateur (Windows, Mac ou Linux), puis déposez la preuve (`.verifbox.json`) et le fichier d’origine. La page fonctionne sans connexion internet et ne peut envoyer aucune donnée sur le réseau. Son interface existe en français.
+**Vérifier une preuve sans compétence technique** (seules les clés intégrées à la page servent de racines de confiance) : téléchargez `verifbox-verify-offline.html` depuis ce dépôt, ouvrez-le d’un double-clic dans votre navigateur (Windows, Mac ou Linux), puis déposez la preuve (`.verifbox.json`) et le fichier d’origine. La page fonctionne sans connexion internet et ne peut envoyer aucune donnée sur le réseau. Son interface existe en français.
 
 Autres méthodes : voir ci-dessus, ou https://verifbox.com/fr/specification
