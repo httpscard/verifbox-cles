@@ -25,6 +25,16 @@ Both must show the fingerprint above, which must also match `verifbox-cles.json`
 
 ## Verify a VerifBox proof
 
+### Without any technical skill: the offline page
+
+1. Download `verifbox-verify-offline.html` from this repository (button "Download raw file").
+2. Double-click it: it opens in your browser, on Windows, Mac or Linux.
+3. Drop the proof (`.verifbox.json`) and the original file.
+
+The page works without any internet connection and cannot make any network request. The public key file is included in it; its SHA-256 is shown at the bottom of the page, to compare with the fingerprint above.
+
+### In Python
+
 ```bash
 pip install cryptography dilithium-py
 python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
@@ -46,4 +56,6 @@ Il permet de contrôler le fichier de clés de VerifBox **sans faire confiance a
 
 Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC. Empreinte SHA-256 du fichier `verifbox-cles.json` : `e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d`.
 
-Vérification d’une preuve : voir ci-dessus, ou https://verifbox.com/fr/specification
+**Vérifier une preuve sans compétence technique** : téléchargez `verifbox-verify-offline.html` depuis ce dépôt, ouvrez-le d’un double-clic dans votre navigateur (Windows, Mac ou Linux), puis déposez la preuve (`.verifbox.json`) et le fichier d’origine. La page fonctionne sans connexion internet et ne peut envoyer aucune donnée sur le réseau. Son interface existe en français.
+
+Autres méthodes : voir ci-dessus, ou https://verifbox.com/fr/specification
