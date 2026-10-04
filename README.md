@@ -15,6 +15,24 @@ This repository publishes the public signing keys of **VerifBox** (https://verif
 
 It exists so that anyone can check the VerifBox key file **without trusting verifbox.com alone**: the same fingerprint is published here, in the DNS of internetidentitycard.com (DNSSEC-signed), and on verifbox.com. A substituted key file would not match all three.
 
+## What you get
+
+<table>
+<tr>
+<td width="42%" valign="top">
+<a href="https://verifbox.com/example-certificate-verifbox.pdf"><img src="verifbox-example-certificate.png" alt="Example of a VerifBox timestamp certificate" width="100%"></a>
+<br><sub>Demonstration example based on a real proof, shown with an EXAMPLE watermark.</sub>
+</td>
+<td valign="top">
+<p>Three files, each with its own role. You keep them: VerifBox keeps no copy.</p>
+<p><strong>The proof</strong> <code>.verifbox.json</code><br>The authoritative document: the file’s fingerprint, the date and time, and both signatures. Issued immediately.</p>
+<p><strong>The Bitcoin anchor</strong> <code>.ots</code><br>A second proof, recorded in the Bitcoin blockchain and verifiable without VerifBox. Completed within a few hours.</p>
+<p><strong>The certificate</strong> <code>PDF</code><br>A readable presentation of everything, with links to the Bitcoin block and transaction, to attach to a file or send to an adviser. Available once the anchor is confirmed.</p>
+<p><a href="https://verifbox.com/example-certificate-verifbox.pdf"><strong>View the example PDF →</strong></a></p>
+</td>
+</tr>
+</table>
+
 ## Current key
 
 | | |
@@ -64,6 +82,8 @@ Keys are never deleted. On rotation, the old key signs the new one, the old key 
 Ce dépôt publie les clés publiques de signature de **VerifBox** (https://verifbox.com), service d’horodatage de fichiers édité par HTTPS CARD — Internet Identity Card Limited (société n° 09168431, Londres).
 
 Il permet de contrôler le fichier de clés de VerifBox **sans faire confiance au seul verifbox.com** : la même empreinte est publiée ici, dans le DNS d’internetidentitycard.com (signé par DNSSEC) et sur verifbox.com. Un fichier de clés substitué ne correspondrait pas aux trois.
+
+**Ce que vous obtenez** : la preuve (`.verifbox.json`), qui fait foi ; l’ancrage Bitcoin (`.ots`), vérifiable sans VerifBox ; et un certificat PDF lisible, disponible une fois l’ancrage confirmé ([exemple](https://verifbox.com/exemple-certificat-verifbox.pdf)).
 
 Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC. Empreinte SHA-256 du fichier `verifbox-cles.json` : `e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d`.
 
