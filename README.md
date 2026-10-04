@@ -1,3 +1,14 @@
+<p align="center">
+  <img src="verifbox-banner.png" alt="VerifBox — public signing keys and independent verifiers" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://verifbox.com">Website</a> ·
+  <a href="https://verifbox.com/verify">Verify a proof</a> ·
+  <a href="https://verifbox.com/specification">Specification</a> ·
+  <a href="https://verifbox.com/fr">Français</a>
+</p>
+
 # VerifBox public signing keys
 
 This repository publishes the public signing keys of **VerifBox** (https://verifbox.com), a file timestamping service operated by HTTPS CARD — Internet Identity Card Limited (company no. 09168431, London).
