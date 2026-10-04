@@ -60,7 +60,7 @@ Both must show the fingerprint above, which must also match `verifbox-cles.json`
 2. Double-click it: it opens in your browser, on Windows, Mac or Linux.
 3. Drop the proof (`.verifbox.json`) and the original file.
 
-The page works without any internet connection and cannot make any network request. The public key file is included in it; its SHA-256 is shown at the bottom of the page, to compare with the fingerprint above. Only the keys included in the page are trusted as roots: a key file loaded by hand can only add keys attested by a trusted key, or mark known keys as retired or revoked. It can never add a root key or lift a revocation. Such a file can therefore cause a proof to be refused, never to be accepted. The Bitcoin block number shown offline is read from the .ots file itself and is not verified against Bitcoin.
+The page works without any internet connection and cannot make any network request. The public key file is included in it **verbatim**, in the `<script type="application/json" id="cles-integrees">` block: the SHA-256 of the text between those two tags is exactly the fingerprint above. The page recomputes this fingerprint when it opens and shows it at the bottom, with a warning if it ever differed. Only the keys included in the page are trusted as roots: a key file loaded by hand can only add keys attested by a trusted key, or mark known keys as retired or revoked. It can never add a root key or lift a revocation. Such a file can therefore cause a proof to be refused, never to be accepted. The Bitcoin block number shown offline is read from the .ots file itself and is not verified against Bitcoin.
 
 ### In Python
 

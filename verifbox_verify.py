@@ -169,8 +169,9 @@ def main():
         import os
         if os.path.getsize(a.proof) > MAX_PROOF_SIZE: raise ValueError("proof file too large (1 MB maximum)")
         proof = json.load(open(a.proof))
-        c, s = proof["contenu"], proof["signatures"]
-        if c.get("format") != "verifbox-preuve-1": raise ValueError(f"unsupported proof format: {c.get('format')}")
+        if not isinstance(proof, dict): proof = {}           # rejected below by the strict format check
+        c = proof.get("contenu") if isinstance(proof.get("contenu"), dict) else {}
+        s = proof.get("signatures") if isinstance(proof.get("signatures"), dict) else {}
         if a.offline and not a.keys: raise ValueError("--offline requires --keys")
         keys, origin, keys_hash = load_keys(a.keys)
     except Exception as e:
