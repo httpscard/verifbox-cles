@@ -36,6 +36,7 @@ KEYS_URL = "https://verifbox.com/.well-known/verifbox-cles.json"
 DNS_NAME = "_verifbox.internetidentitycard.com"
 DOH_URL = "https://dns.google/resolve?type=TXT&do=1&name=" + DNS_NAME
 PROOF_PREFIX, TRANSITION_PREFIX = b"verifbox-preuve-v1\n", b"verifbox-transition-v1\n"
+ATTESTATION_PREFIX = b"verifbox-attestation-v1\n"
 # Trusted root keys: identifier -> SHA-256(Ed25519 public key || ML-DSA-65 public key), full 256 bits.
 PINNED_ROOTS = {"258e57366bcdb6ce": "258e57366bcdb6ce16cc22fe972c638346de2a5415327154a030e5a6b9293946"}
 MAX_PROOF_SIZE = 1 << 20
@@ -90,6 +91,15 @@ def check_schema(proof):
         except Exception:
             bad.append(field)
     return bad
+
+
+def attestation_digest(content, sigs):
+    """Digest of the signed attestation, anchored in Bitcoin as the second anchor (specification, section 7)."""
+    return hashlib.sha256(ATTESTATION_PREFIX + canonical(content) + b"\n" + sigs["ed25519"].encode() + b"\n" + sigs["ml_dsa_65"].encode()).hexdigest()
+
+
+def ots_digest(ots):
+    return ots[33:65].hex() if ots.startswith(OTS_MAGIC) and ots[31] == 1 and ots[32] == 0x08 else None
 
 
 def key_id(entry):
@@ -151,7 +161,8 @@ def main():
     p = argparse.ArgumentParser(description="Independent verifier for VerifBox proofs.")
     p.add_argument("proof"); p.add_argument("file", nargs="?")
     p.add_argument("--keys", help="local public key file (otherwise downloaded from verifbox.com)")
-    p.add_argument("--ots", help="write the Bitcoin anchor to this .ots file, for 'ots verify'")
+    p.add_argument("--ots", help="write the Bitcoin anchor of the file to this .ots file, for 'ots verify'")
+    p.add_argument("--ots-attestation", help="write the Bitcoin anchor of the attestation to this .ots file")
     p.add_argument("--offline", action="store_true", help="no network access (requires --keys); skips the DNS cross-check")
     p.add_argument("--root", action="append", default=[], metavar="KEYID:SHA256",
                    help="trust an additional root key, given by its identifier and full public-key SHA-256")
@@ -215,8 +226,12 @@ def main():
             check(t >= parse_time(start), f"Proof dated after the key was put into service ({start})")
         if key.get("valide_jusqu"): check(t <= parse_time(key["valide_jusqu"]), f"Proof dated before the key was retired ({key['valide_jusqu']})")
         if key.get("statut") == "revoquee":
-            check(None, f"Key REVOKED on {key.get('revoquee_le')}: the proof is only reliable if its Bitcoin anchor "
-                        "(checked with 'ots verify') is in a block dated before the revocation.")
+            has_att = bool(((proof.get("ancrages") or {}).get("attestation") or {}).get("ots"))
+            check(None, f"Key REVOKED on {key.get('revoquee_le')}: " + (
+                "the proof is only reliable if the Bitcoin anchor of its ATTESTATION is in a block dated before the revocation "
+                "(extract it with --ots-attestation and check it with 'ots verify -d <attestation digest>')." if has_att else
+                "this proof has no anchor of its attestation, so its signed date can no longer be relied upon; at most, the "
+                "anchor of the file shows that the file existed before its block."))
             ok = False
 
     if a.file:
@@ -236,6 +251,20 @@ def main():
             check(None, "Bitcoin anchor present: use --ots FILE.ots, then 'ots verify' to check it against Bitcoin.")
     else:
         check(None, "No Bitcoin anchor in this proof.")
+    # Second anchor: the signed attestation itself.
+    att_b64 = ((proof.get("ancrages") or {}).get("attestation") or {}).get("ots")
+    if att_b64:
+        try:
+            att = base64.b64decode(att_b64); expected = attestation_digest(c, s)
+            same = ots_digest(att) == expected
+        except Exception:
+            same, att, expected = False, None, None
+        check(same, f"The embedded anchor of the attestation refers to this attestation (structural check; digest {expected})")
+        if same and a.ots_attestation:
+            open(a.ots_attestation, "wb").write(att)
+            check(None, f"Attestation anchor written to {a.ots_attestation}: run  ots verify -d {expected} {a.ots_attestation}")
+    else:
+        check(None, "No anchor of the attestation (proof issued before the two-anchor format).")
 
     print(f"\nProof {c['identifiant']}  |  timestamp {c['horodatage']}  |  key {c['cle']}")
     for status, text in lines: print(f"  [{status}] {text}")
