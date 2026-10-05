@@ -268,7 +268,10 @@ def main():
 
     print(f"\nProof {c['identifiant']}  |  timestamp {c['horodatage']}  |  key {c['cle']}")
     for status, text in lines: print(f"  [{status}] {text}")
-    print("\nRESULT: " + ("VALID (signatures and file)" if ok else "NOT VALID"))
+    if not ok: verdict = "NOT VALID"
+    elif a.file: verdict = "VALID (signatures and file)"
+    else: verdict = "VALID SIGNATURES (original file not checked: provide it to confirm the fingerprint)"
+    print("\nRESULT: " + verdict)
     return 0 if ok else 1
 
 

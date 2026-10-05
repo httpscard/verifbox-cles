@@ -33,6 +33,10 @@ It exists so that anyone can check the VerifBox key file **without trusting veri
 </tr>
 </table>
 
+## Public demonstration proof
+
+The [`demo/`](demo/) folder contains a real proof with the double Bitcoin anchoring (proof `2661beaa…`, block 970,047), its two `.ots` files and the commands to replay every check yourself, from the fingerprints alone.
+
 ## Current key
 
 | | |
