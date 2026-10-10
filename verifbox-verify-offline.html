@@ -90,6 +90,7 @@ footer{border-top:1px solid var(--trait);color:var(--doux);font-size:.88rem;padd
   ]
 }
 </script>
+<script type="application/json" id="iic-tsa-integre">{"racines": [{"nom": "IIC TSA Root R1", "certificat": "MIICPDCCAcOgAwIBAgIRAOZLDO5cKLkIuQOkzl7w9XUwCgYIKoZIzj0EAwMwXTELMAkGA1UEBhMCR0IxNDAyBgNVBAoMK0hUVFBTIENBUkQgLSBJTlRFUk5FVCBJREVOVElUWSBDQVJEIExJTUlURUQxGDAWBgNVBAMMD0lJQyBUU0EgUm9vdCBSMTAgFw0yNjEwMTAwMDAwMDBaGA8yMDU2MTAwOTIzNTk1OVowXTELMAkGA1UEBhMCR0IxNDAyBgNVBAoMK0hUVFBTIENBUkQgLSBJTlRFUk5FVCBJREVOVElUWSBDQVJEIExJTUlURUQxGDAWBgNVBAMMD0lJQyBUU0EgUm9vdCBSMTB2MBAGByqGSM49AgEGBSuBBAAiA2IABJnUJcjr0Kr+JGwy2ImJqpvy2aTSKbiqUD2Og8euZTtRqjUZJlMGDfiZjbu4VpQ4Wz1u0nfHP419ysike1DmbFPdEyzRbbsZ7bxYr37qJMR5scjwiG5hr+KPxtGuHXdyG6NFMEMwEgYDVR0TAQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFEQducP0bMQgyVqE9E8yblT1DY+IMAoGCCqGSM49BAMDA2cAMGQCMG+SrYs5U7Rg1C15v/TXp/kkSak7BM6YMYBOyZ4OaveBt2hNf6WUQ+n7Y3lb0hOAbgIwbXIPxVU78HBcDUQrsGp95nD1oN071GKBHnlx4v8SJEO70OugJ6VX8tqHmRWK7UIE", "sha256": "8652e3d13e725f7c757cfa053d641360aca443cf6c09d7d6ddd44bea851ed3b9", "test": false, "depuis": "2026-10-10"}], "politiques": ["1.3.6.1.4.1.67100.1.1.1.1"], "crl": "MIIBNjCBvQIBATAKBggqhkjOPQQDAzBdMQswCQYDVQQGEwJHQjE0MDIGA1UECgwrSFRUUFMgQ0FSRCAtIElOVEVSTkVUIElERU5USVRZIENBUkQgTElNSVRFRDEYMBYGA1UEAwwPSUlDIFRTQSBSb290IFIxFw0yNjEwMTAxNzI5MTlaFw0yNzEwMTAxNzI5MTlaoC8wLTAfBgNVHSMEGDAWgBREHbnD9GzEIMlahPRPMm5U9Q2PiDAKBgNVHRQEAwIBATAKBggqhkjOPQQDAwNoADBlAjEAkkhG3MHN0JNPcL2Z8TjwFj5/8WkLJyDHE3dK5nfOQF2tdbgknJtuMMmh3J/xxd0OAjArDp+WhWSl7po+GC+i+oIAf7JO5MThhi2T2VgtRM3ITeBkslh5TxuB0Vp9Yx2YMME=", "date_crl": "2026-10-10"}</script>
 <script>/*
  * VerifBox offline verifier - bundled cryptographic libraries (readable, not minified).
  * Libraries (MIT licence, by Paul Miller, https://paulmillr.com/noble/):
@@ -3564,11 +3565,225 @@ var VBC = (() => {
   return __toCommonJS(entree_exports);
 })();
 </script>
+<script>var RFC3161 = (() => {
+// Verification, dans le navigateur, d'un jeton d'horodatage RFC 3161 / RFC 5816 d'IIC TSA.
+// Aucun appel reseau ici : la racine de confiance et la liste de revocation sont fournies par l'appelant.
+// Controles : statut, empreinte du fichier, politique, attributs signes (content-type, message-digest,
+// ESSCertIDv2), signature ECDSA P-256, certificat emis par une racine connue, usage horodatage,
+// validite a l'heure du jeton, liste de revocation signee par la racine.
+
+const OID = {
+  sha256: '2.16.840.1.101.3.4.2.1', signedData: '1.2.840.113549.1.7.2', tstInfo: '1.2.840.113549.1.9.16.1.4',
+  contentType: '1.2.840.113549.1.9.3', messageDigest: '1.2.840.113549.1.9.4', signingCertV2: '1.2.840.113549.1.9.16.2.47',
+  ecdsaSha256: '1.2.840.10045.4.3.2', ecdsaSha384: '1.2.840.10045.4.3.3', ecdsaSha512: '1.2.840.10045.4.3.4',
+  p256: '1.2.840.10045.3.1.7', p384: '1.3.132.0.34', eku: '2.5.29.37', ekuHorodatage: '1.3.6.1.5.5.7.3.8',
+  invalidite: '2.5.29.24',
+};
+const HACHAGE = { [OID.ecdsaSha256]: 'SHA-256', [OID.ecdsaSha384]: 'SHA-384', [OID.ecdsaSha512]: 'SHA-512' };
+const COURBE = { [OID.p256]: ['P-256', 32], [OID.p384]: ['P-384', 48] };
+
+class JetonInvalide extends Error {}
+const exiger = (cond, raison) => { if (!cond) throw new JetonInvalide(raison); };
+
+// ------------------------------------------------------------------ DER
+function tlv(o, p) {
+  exiger(p + 2 <= o.length, 'der');
+  const tag = o[p]; let n = o[p + 1], h = 2;
+  if (n & 0x80) {
+    const k = n & 0x7f; exiger(k >= 1 && k <= 3 && p + 2 + k <= o.length, 'der');
+    n = 0; for (let i = 0; i < k; i++) n = n * 256 + o[p + 2 + i];
+    h = 2 + k;
+  }
+  exiger(p + h + n <= o.length, 'der');
+  return { o, tag, debut: p + h, fin: p + h + n, entete: p };
+}
+const racineDer = (o) => { const n = tlv(o, 0); exiger(n.fin === o.length, 'der'); return n; };
+function enfants(n) {
+  const r = []; let p = n.debut;
+  while (p < n.fin) { const e = tlv(n.o, p); exiger(e.fin <= n.fin, 'der'); r.push(e); p = e.fin; }
+  exiger(p === n.fin, 'der');
+  return r;
+}
+// Noeud d'etiquette attendue (0x30 SEQUENCE, 0x31 SET, 0x04 OCTET STRING, 0x02 INTEGER...).
+const de = (n, tag) => { exiger(n && n.tag === tag, 'structure'); return n; };
+const seq = (n) => enfants(de(n, 0x30));
+const brut = (n) => n.o.subarray(n.entete, n.fin);
+const contenu = (n) => n.o.subarray(n.debut, n.fin);
+const memes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+const hex = (o) => Array.from(o, (b) => b.toString(16).padStart(2, '0')).join('');
+
+function oid(n) {
+  exiger(n.tag === 0x06, 'oid');
+  const c = contenu(n), r = [Math.floor(c[0] / 40), c[0] % 40]; let v = 0;
+  for (let i = 1; i < c.length; i++) { v = v * 128 + (c[i] & 0x7f); if (!(c[i] & 0x80)) { r.push(v); v = 0; } }
+  return r.join('.');
+}
+function entierHex(n) {
+  exiger(n.tag === 0x02, 'entier');
+  return hex(contenu(n)).replace(/^0+(?=.)/, '');
+}
+const entierPetit = (n) => parseInt(entierHex(n), 16);
+function temps(n) {
+  const s = new TextDecoder().decode(contenu(n));
+  let m;
+  if (n.tag === 0x17 && (m = /^(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)Z$/.exec(s))) {
+    const a = +m[1]; return new Date(Date.UTC(a < 50 ? 2000 + a : 1900 + a, m[2] - 1, m[3], m[4], m[5], m[6]));
+  }
+  if (n.tag === 0x18 && (m = /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\.\d+)?Z$/.exec(s))) {
+    return new Date(Date.UTC(m[1], m[2] - 1, m[3], m[4], m[5], m[6]) + (m[7] ? Math.round(parseFloat(m[7]) * 1000) : 0));
+  }
+  throw new JetonInvalide('date');
+}
+
+// ------------------------------------------------------------------ certificats
+function certificat(der) {
+  const c = racineDer(der), [tbs, alg, sig] = seq(c), t = seq(tbs);
+  de(sig, 0x03); exiger(contenu(sig)[0] === 0, 'certificat');
+  let i = t[0].tag === 0xa0 ? 1 : 0;
+  const serie = entierHex(t[i]), emetteur = brut(t[i + 2]), validite = enfants(t[i + 3]), sujet = brut(t[i + 4]), spki = t[i + 5];
+  const ext = t.find((e) => e.tag === 0xa3), extensions = {};
+  if (ext) for (const e of enfants(enfants(ext)[0])) {
+    const f = enfants(e);
+    extensions[oid(f[0])] = { critique: f.length === 3 && contenu(f[1])[0] === 0xff, valeur: contenu(f[f.length - 1]) };
+  }
+  return { der, tbs: brut(tbs), algorithme: oid(enfants(alg)[0]), signature: contenu(sig).subarray(1),
+    serie, emetteur, sujet, spki: brut(spki), courbe: oid(enfants(enfants(spki)[0])[1]),
+    debut: temps(validite[0]), fin: temps(validite[1]), extensions };
+}
+
+// ECDSA-Sig-Value (DER) -> r || s de longueur fixe, attendu par WebCrypto.
+function signatureBrute(der, taille) {
+  const v = seq(racineDer(der)); exiger(v.length === 2, 'signature');
+  const [r, s] = v.map((x) => { exiger(x.tag === 0x02, 'signature'); let v = contenu(x); while (v.length > taille && v[0] === 0) v = v.subarray(1); exiger(v.length <= taille, 'signature'); return v; });
+  const o = new Uint8Array(2 * taille); o.set(r, taille - r.length); o.set(s, 2 * taille - s.length); return o;
+}
+
+async function verifierEcdsa(spki, courbe, hachage, signatureDer, donnees) {
+  const [nom, taille] = COURBE[courbe] || [];
+  exiger(nom && hachage, 'algorithme');
+  const cle = await crypto.subtle.importKey('spki', spki, { name: 'ECDSA', namedCurve: nom }, false, ['verify']);
+  return crypto.subtle.verify({ name: 'ECDSA', hash: hachage }, cle, signatureBrute(signatureDer, taille), donnees);
+}
+
+const sha256 = async (o) => new Uint8Array(await crypto.subtle.digest('SHA-256', o));
+
+// ------------------------------------------------------------------ liste de revocation (CRL)
+async function lireCrl(der, racine) {
+  const c = racineDer(der), [tbs, alg, sig] = enfants(c), t = enfants(tbs);
+  let i = t[0].tag === 0x02 ? 1 : 0;
+  exiger(memes(brut(t[i + 1]), racine.sujet), 'crl');
+  exiger(await verifierEcdsa(racine.spki, racine.courbe, HACHAGE[oid(enfants(alg)[0])], contenu(sig).subarray(1), brut(tbs)), 'crl');
+  const suivante = t[i + 3] && (t[i + 3].tag === 0x17 || t[i + 3].tag === 0x18) ? temps(t[i + 3]) : null;
+  const liste = t.find((e, k) => k > i + 2 && e.tag === 0x30), revoques = {};
+  if (liste) for (const e of enfants(liste)) {
+    const f = enfants(e), entree = { date: temps(f[1]) };
+    if (f[2]) for (const x of enfants(f[2])) { const g = enfants(x); if (oid(g[0]) === OID.invalidite) entree.invalidite = temps(racineDer(contenu(g[g.length - 1]))); }
+    revoques[entierHex(f[0])] = entree;
+  }
+  return { suivante, revoques };
+}
+
+// ------------------------------------------------------------------ jeton
+// confiance : { racines: [{ der: Uint8Array, test: bool }], politiques: [oid...], crl: Uint8Array | null }
+async function verifierJeton(tsr, empreinteHex, confiance) {
+  const resp = seq(racineDer(tsr));
+  exiger(resp.length === 2, 'reponse');
+  exiger([0, 1].includes(entierPetit(seq(resp[0])[0])), 'refus');
+  const ci = seq(resp[1]);
+  exiger(ci.length === 2 && oid(ci[0]) === OID.signedData && ci[1].tag === 0xa0, 'signed-data');
+  const ciContenu = enfants(ci[1]); exiger(ciContenu.length === 1, 'signed-data');
+  const sd = seq(ciContenu[0]);
+  exiger(entierPetit(sd[0]) === 3, 'signed-data');
+  exiger(enfants(de(sd[1], 0x31)).some((a) => oid(seq(a)[0]) === OID.sha256), 'signed-data');
+  const encap = seq(sd[2]);
+  exiger(encap.length === 2 && oid(encap[0]) === OID.tstInfo && encap[1].tag === 0xa0, 'tst-info');
+  const encapContenu = enfants(encap[1]); exiger(encapContenu.length === 1, 'tst-info');
+  const tstOctets = de(encapContenu[0], 0x04);
+  const tstDer = contenu(tstOctets), tst = seq(racineDer(tstDer));
+  exiger(entierPetit(tst[0]) === 1, 'tst-info');
+  const politique = oid(tst[1]), mi = seq(tst[2]);
+  exiger(oid(seq(mi[0])[0]) === OID.sha256, 'algorithme d\'empreinte');
+  exiger(hex(contenu(de(mi[1], 0x04))) === empreinteHex, 'empreinte');
+  exiger(confiance.politiques.includes(politique), 'politique');
+  const serie = entierHex(tst[3]), heure = temps(tst[4]);
+  exiger(tst[4].tag === 0x18, 'date');
+  let precision = null;
+  const acc = tst.slice(5).find((e) => e.tag === 0x30);
+  if (acc) {
+    precision = 0;
+    for (const e of enfants(acc)) {
+      const v = parseInt(hex(contenu(e)) || '0', 16);
+      precision += e.tag === 0x02 ? v * 1000 : e.tag === 0x80 ? v : e.tag === 0x81 ? v / 1000 : 0;
+    }
+  }
+  // Certificats joints et signataire.
+  const certs = sd.filter((e) => e.tag === 0xa0).flatMap((e) => enfants(e).filter((x) => x.tag === 0x30).map((x) => brut(x)));
+  const infos = enfants(de(sd[sd.length - 1], 0x31));
+  exiger(infos.length === 1, 'signer-info');
+  const si = seq(infos[0]);
+  exiger(entierPetit(si[0]) === 1, 'signer-info');
+  const sid = seq(si[1]);
+  exiger(oid(seq(si[2])[0]) === OID.sha256, 'algorithme d\'empreinte');
+  const attrsNoeud = si.find((e) => e.tag === 0xa0);
+  exiger(attrsNoeud, 'attributs signes');
+  const attrs = {};
+  for (const a of enfants(attrsNoeud)) {
+    const [t, v] = seq(a), vals = enfants(de(v, 0x31)), cle = oid(t);
+    exiger(vals.length === 1 && !(cle in attrs), 'attributs signes');
+    attrs[cle] = vals[0];
+  }
+  exiger(attrs[OID.contentType] && oid(attrs[OID.contentType]) === OID.tstInfo, 'content-type');
+  exiger(attrs[OID.messageDigest] && memes(contenu(attrs[OID.messageDigest]), await sha256(tstDer)), 'message-digest');
+  exiger(attrs[OID.signingCertV2], 'signing-certificate-v2');
+  const ess = seq(seq(seq(attrs[OID.signingCertV2])[0])[0]);
+  let k = 0;
+  if (ess[0].tag === 0x30) { exiger(oid(seq(ess[0])[0]) === OID.sha256, 'ESSCertIDv2'); k = 1; }
+  const hachageCert = contenu(de(ess[k], 0x04));
+  let feuille = null;
+  for (const der of certs) if (memes(await sha256(der), hachageCert)) feuille = certificat(der);
+  exiger(feuille, 'certificat du signataire');
+  // Identifiant du signataire : emetteur et numero de serie du certificat.
+  exiger(sid.length === 2 && memes(brut(sid[0]), feuille.emetteur) && entierHex(sid[1]) === feuille.serie, 'signataire');
+  // Signature des attributs signes, re-etiquetes en SET OF (0x31).
+  const signes = Uint8Array.from(brut(attrsNoeud)); signes[0] = 0x31;
+  const sigAlg = oid(seq(si[si.indexOf(attrsNoeud) + 1])[0]);
+  exiger(sigAlg === OID.ecdsaSha256, 'algorithme de signature');
+  exiger(await verifierEcdsa(feuille.spki, feuille.courbe, 'SHA-256', contenu(de(si[si.indexOf(attrsNoeud) + 2], 0x04)), signes), 'signature');
+  // Chaine : la feuille doit etre emise par une racine connue.
+  let racine = null, test = false;
+  for (const r of confiance.racines) {
+    const c = certificat(r.der);
+    if (memes(c.sujet, feuille.emetteur) && await verifierEcdsa(c.spki, c.courbe, HACHAGE[feuille.algorithme], feuille.signature, feuille.tbs)) { racine = c; test = !!r.test; }
+  }
+  exiger(racine, 'racine inconnue');
+  const eku = feuille.extensions[OID.eku];
+  exiger(eku && eku.critique, 'usage du certificat');
+  const usages = enfants(racineDer(eku.valeur)).map(oid);
+  exiger(usages.length === 1 && usages[0] === OID.ekuHorodatage, 'usage du certificat');
+  exiger(heure >= feuille.debut && heure <= feuille.fin, 'certificat hors validite');
+  // Revocation.
+  let revocation = 'non_controlee', revoqueLe = null;
+  if (confiance.crl) {
+    const crl = await lireCrl(confiance.crl, racine);
+    const e = crl.revoques[feuille.serie];
+    if (e) {
+      revoqueLe = e.invalidite || e.date;
+      exiger(heure < revoqueLe, 'certificat revoque');
+      revocation = 'revoque_apres';
+    } else {
+      revocation = crl.suivante && crl.suivante < new Date() ? 'liste_expiree' : 'non_revoque';
+    }
+  }
+  return { heure, precision, serie, politique, test, revocation, revoqueLe, tsa: 'IIC TSA' };
+}
+
+return { verifierJeton, JetonInvalide };
+})();</script>
 <script>
 "use strict";
 const CLES_BRUT = document.getElementById("cles-integrees").textContent;   // octets exacts du fichier verifbox-cles.json
 const CLES_INTEGREES = JSON.parse(CLES_BRUT);
-const CLES_HASH = "e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d", CLES_DATE = "2026-10-05";
+const CLES_HASH = "e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d", CLES_DATE = "2026-10-10";
 const T = {
  en:{sous:"Offline verifier",titre:"Verify a proof, offline",chapeau:"This page works without any internet connection and without the VerifBox website. Everything it needs, including the public signing keys, is inside this file.",reseau:"This page is technically unable to send anything over the network: your proof and your file stay on this device.",d1:"1. The proof",d1a:"The file ending in .verifbox.json",d2:"2. The original file",d2a:"Required for a complete verification",attente:"The result will appear here.",bots:"Save the Bitcoin anchor (.ots)",cles:"Public key file included in this page",recouper:"Compare this fingerprint with its independent publications: the TXT record _verifbox.internetidentitycard.com (DNSSEC) and github.com/httpscard/verifbox-cles.",autres:"Key file more recent than this page?",charger:"Load another key file",spec:"Specification: verifbox.com/specification · MIT licence",
   illisible:"This file is not a readable VerifBox proof.",tropGros:"This file is too large to be a VerifBox proof (1 MB maximum).",schemaKo:"Invalid proof format: {champs}",clesBilan:"Trust established from the root key embedded in this page. Key file loaded (SHA-256 {h}…). Additional keys accepted, attested by a trusted key: {a}. Keys rejected: {r}. A key file can only add attested keys or restrict known keys: it can cause a proof to be refused, never to be accepted.",aucune:"none",chargee:"Proof loaded.",calcul:"Computing the file’s fingerprint… {p} %",
@@ -3580,6 +3795,7 @@ const T = {
   stOk:"Verification passed",stKo:"Verification failed",stPart:"Partial verification",tOk:"Valid proof",tKo:"Invalid proof",tPart:"Valid signatures",
   xOk:"This file existed no later than {date} ({utc}), according to the proof signed by VerifBox.",xKo:"At least one check failed. This proof must not be used.",xPart:"The proof is authentic. Add the original file to confirm it is the same file.",
   dDate:"Timestamp",dId:"Proof identifier",dCle:"Signing key",dEmp:"SHA-256 fingerprint",dBtc:"Bitcoin anchor",btcAnnonce:"block {b}, as claimed by the .ots file (not verified against Bitcoin offline)",btcAttente:"pending: complete it on verifbox.com",btcInconnu:"present, unreadable",
+  jOk:"IIC TSA time-stamp token (RFC 3161) verified: {d} UTC, accuracy ± {p}.",jTest:"IIC TSA TEST time-stamp token ({d} UTC): test service, not a production proof.",jKo:"The IIC TSA time-stamp token is INVALID ({r}).",jSansRacine:"IIC TSA time-stamp token present, but this page contains no IIC TSA root: not checked. Use a more recent version of this page, or verifbox.com.",jInverif:"The IIC TSA time-stamp token could not be checked in this browser.",jRevApres:"The IIC TSA certificate was revoked on {d}, after this token: the token remains valid.",jCrl:"Revocation of the IIC TSA certificate checked against the list included in this page ({d}); a more recent list may exist.",jEcart:"The token time differs from the signed time by {s} s.",dJeton:"IIC TSA token",
   autreCles:"Key file loaded: {n} (SHA-256 {h}…). Compare it with the independent publications.",clesKo:"This key file is not readable."},
  fr:{sous:"Vérificateur hors ligne",titre:"Vérifier une preuve, hors ligne",chapeau:"Cette page fonctionne sans aucune connexion internet et sans le site VerifBox. Tout ce dont elle a besoin, y compris les clés publiques de signature, est contenu dans ce fichier.",reseau:"Cette page est techniquement incapable d’envoyer quoi que ce soit sur le réseau : votre preuve et votre fichier restent sur cet appareil.",d1:"1. La preuve",d1a:"Le fichier qui se termine par .verifbox.json",d2:"2. Le fichier d’origine",d2a:"Indispensable pour une vérification complète",attente:"Le résultat s’affichera ici.",bots:"Enregistrer l’ancrage Bitcoin (.ots)",cles:"Fichier de clés publiques inclus dans cette page",recouper:"Comparez cette empreinte à ses publications indépendantes : l’enregistrement TXT _verifbox.internetidentitycard.com (DNSSEC) et github.com/httpscard/verifbox-cles.",autres:"Fichier de clés plus récent que cette page ?",charger:"Charger un autre fichier de clés",spec:"Spécification : verifbox.com/fr/specification · licence MIT",
   illisible:"Ce fichier n’est pas une preuve VerifBox lisible.",tropGros:"Ce fichier est trop volumineux pour être une preuve VerifBox (1 Mo au maximum).",schemaKo:"Format de preuve invalide : {champs}",clesBilan:"Confiance établie depuis la clé racine intégrée à cette page. Fichier de clés chargé (SHA-256 {h}…). Clés supplémentaires acceptées, attestées par une clé reconnue : {a}. Clés rejetées : {r}. Un fichier de clés ne peut qu’ajouter des clés attestées ou restreindre des clés connues : il peut faire refuser une preuve, jamais la faire accepter.",aucune:"aucune",chargee:"Preuve chargée.",calcul:"Calcul de l’empreinte du fichier… {p} %",
@@ -3591,6 +3807,7 @@ const T = {
   stOk:"Vérification réussie",stKo:"Vérification en échec",stPart:"Vérification partielle",tOk:"Preuve valide",tKo:"Preuve non valide",tPart:"Signatures valides",
   xOk:"Ce fichier existait au plus tard le {date} ({utc}), selon la preuve signée par VerifBox.",xKo:"Au moins un contrôle a échoué. Cette preuve ne doit pas être utilisée.",xPart:"La preuve est authentique. Ajoutez le fichier d’origine pour vérifier qu’il s’agit bien de lui.",
   dDate:"Horodatage",dId:"Identifiant de preuve",dCle:"Clé de signature",dEmp:"Empreinte SHA-256",dBtc:"Ancrage Bitcoin",btcAnnonce:"bloc {b}, tel qu’annoncé par le fichier .ots (non vérifié contre Bitcoin hors ligne)",btcAttente:"en attente : à compléter sur verifbox.com",btcInconnu:"présent, illisible",
+  jOk:"Jeton d’horodatage IIC TSA (RFC 3161) vérifié : {d} UTC, précision ± {p}.",jTest:"Jeton d’horodatage IIC TSA de TEST ({d} UTC) : service de test, ce n’est pas une preuve de production.",jKo:"Le jeton d’horodatage IIC TSA est INVALIDE ({r}).",jSansRacine:"Jeton d’horodatage IIC TSA présent, mais cette page ne contient aucune racine IIC TSA : non vérifié. Utilisez une version plus récente de cette page, ou verifbox.com.",jInverif:"Le jeton d’horodatage IIC TSA n’a pas pu être vérifié dans ce navigateur.",jRevApres:"Le certificat IIC TSA a été révoqué le {d}, après ce jeton : le jeton reste valable.",jCrl:"Révocation du certificat IIC TSA contrôlée avec la liste incluse dans cette page ({d}) ; une liste plus récente peut exister.",jEcart:"L’heure du jeton diffère de l’heure signée de {s} s.",dJeton:"Jeton IIC TSA",
   autreCles:"Fichier de clés chargé : {n} (SHA-256 {h}…). Comparez-le aux publications indépendantes.",clesKo:"Ce fichier de clés n’est pas lisible."}
 };
 let L = (navigator.language || "").toLowerCase().startsWith("fr") ? "fr" : "en";
@@ -3738,6 +3955,40 @@ function verifier() {
     d.push([t("dBtc"), x]); }
   $("#v-d").replaceChildren(...d.flatMap(([x, y]) => [Object.assign(document.createElement("dt"), { textContent: x }), Object.assign(document.createElement("dd"), { textContent: y || "?" })]));
   $("#v-a").classList.toggle("cache", !ots);
+  jetonHorsLigne(c, l, ok, ++appelJeton);
+}
+
+// Jeton RFC 3161 d'IIC TSA : verifie avec la racine et la liste de revocation incluses dans cette page.
+let appelJeton = 0;
+async function jetonHorsLigne(c, l, ok, n) {
+  const j = preuve && preuve.jetons && preuve.jetons.iic_tsa;
+  if (!j) return;
+  const conf = JSON.parse($("#iic-tsa-integre").textContent);
+  const b64 = (x) => Uint8Array.from(atob(x), (y) => y.charCodeAt(0));
+  let ligne;
+  if (!conf.racines.length) ligne = ["n", t("jSansRacine")];
+  else {
+    try {
+      const r = await RFC3161.verifierJeton(b64(j.tsr || ""), c.empreinte, { racines: conf.racines.map((x) => ({ der: b64(x.certificat), test: x.test === true })), politiques: conf.politiques, crl: conf.crl ? b64(conf.crl) : null });
+      const d = r.heure.toISOString().slice(0, 19).replace("T", " "), p = r.precision === null ? "?" : r.precision >= 1000 ? (r.precision / 1000) + " s" : r.precision + " ms";
+      ligne = r.test ? ["n", t("jTest", { d })] : ["ok", t("jOk", { d, p })];
+      const extra = [];
+      const ecart = Math.round(Math.abs(r.heure - Date.parse(c.horodatage)) / 1000);
+      if (ecart > 10) extra.push(["n", t("jEcart", { s: ecart })]);
+      if (r.revocation === "revoque_apres") extra.push(["n", t("jRevApres", { d: r.revoqueLe.toISOString().slice(0, 10) })]);
+      else if (conf.crl) extra.push(["n", t("jCrl", { d: conf.date_crl || "?" })]);
+      if (n !== appelJeton) return;
+      l.push(ligne, ...extra);
+    } catch (e) {
+      if (n !== appelJeton) return;
+      ligne = (e instanceof RFC3161.JetonInvalide) ? ["ko", t("jKo", { r: e.message })] : ["n", t("jInverif")];
+      l.push(ligne);
+      if (ligne[0] === "ko") { ok = false; const v = $("#verdict"); v.className = "verdict ko"; $("#v-statut").textContent = t("stKo"); $("#v-titre").textContent = t("tKo"); $("#v-texte").textContent = t("xKo"); }
+    }
+  }
+  if (n !== appelJeton) return;
+  if (ligne && !l.includes(ligne)) l.push(ligne);
+  $("#v-c").replaceChildren(...l.map(([cl, x]) => Object.assign(document.createElement("li"), { className: cl, textContent: x })));
 }
 
 function traduire() { document.documentElement.lang = L; $("#langue").textContent = L === "fr" ? "EN" : "FR";

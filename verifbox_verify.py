@@ -7,13 +7,17 @@ Checks, without contacting the VerifBox service:
   - the Ed25519 and ML-DSA-65 (FIPS 204) signatures,
   - the signing key: identifier, attestation chain, validity period, revocation status,
   - the public key file against its independent publication in the DNS of
-    internetidentitycard.com (TXT record _verifbox, DNSSEC-validated), unless --offline.
+    internetidentitycard.com (TXT record _verifbox, DNSSEC-validated), unless --offline,
+  - the IIC TSA time-stamp token (RFC 3161), when the proof carries one: status, file
+    fingerprint, policy, signed attributes, ECDSA signature, certificate issued by a PINNED
+    IIC TSA root, time-stamping usage, validity and revocation (root CRL).
 The Bitcoin anchor is checked separately with the official OpenTimestamps client:
   this tool extracts the .ots file for that purpose (--ots).
 
 Install:   pip install cryptography dilithium-py
 Usage:     python3 verifbox_verify.py PROOF.verifbox.json [ORIGINAL_FILE] [--keys verifbox-cles.json] [--ots OUT.ots] [--offline]
-                                     [--root KEYID:SHA256]
+                                     [--root KEYID:SHA256] [--tsr OUT.tsr] [--iic-root ROOT.pem --iic-crl ROOT.crl]
+                                     [--iic-root-sha256 SHA256]
 
 Trust: the root key is PINNED in this file by the SHA-256 of its two public keys (PINNED_ROOTS). A key file
 can only add keys that are attested by a trusted key; an unknown root key is rejected.
@@ -23,7 +27,7 @@ and their SHA-256 fingerprint is printed, so you can compare it with independent
 Specification: https://verifbox.com/specification
 Exit code: 0 = valid, 1 = invalid, 2 = error.  Licence: MIT.
 """
-import argparse, base64, hashlib, json, sys, urllib.request
+import argparse, base64, hashlib, json, sys, urllib.parse, urllib.request
 from datetime import datetime
 
 try:
@@ -40,6 +44,11 @@ ATTESTATION_PREFIX = b"verifbox-attestation-v1\n"
 # Trusted root keys: identifier -> SHA-256(Ed25519 public key || ML-DSA-65 public key), full 256 bits.
 PINNED_ROOTS = {"258e57366bcdb6ce": "258e57366bcdb6ce16cc22fe972c638346de2a5415327154a030e5a6b9293946"}
 MAX_PROOF_SIZE = 1 << 20
+# IIC TSA: trusted root certificates, by SHA-256 of their DER encoding.
+PINNED_IIC_TSA_ROOTS = {"8652e3d13e725f7c757cfa053d641360aca443cf6c09d7d6ddd44bea851ed3b9": "IIC TSA Root R1 (production, offline ceremony of 10 October 2026)"}
+IIC_TSA_POLICIES = ["1.3.6.1.4.1.67100.1.1.1.1"]
+IIC_TSA_TEST_POLICY = "1.3.6.1.4.1.67100.1.1.9.1"
+IIC_TSA_TRUST_URL = "https://verifbox.com/.well-known/iic-tsa.json"
 CONTENT_FIELDS = ["algorithme", "cle", "emetteur", "empreinte", "format", "horodatage", "identifiant"]
 OTS_MAGIC = bytes.fromhex("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294")
 
@@ -157,6 +166,160 @@ def file_sha256(path):
     return h.hexdigest()
 
 
+# ---------------------------------------------------------------- IIC TSA token (RFC 3161 / RFC 5816)
+def der(o, p=0):
+    """(tag, content start, end) of the DER element at p; strict lengths."""
+    tag, n, h = o[p], o[p + 1], 2
+    if n & 0x80:
+        k = n & 0x7F
+        if not 1 <= k <= 3: raise ValueError("der")
+        n, h = int.from_bytes(o[p + 2:p + 2 + k], "big"), 2 + k
+    if p + h + n > len(o): raise ValueError("der")
+    return tag, p + h, p + h + n
+
+
+def kids(o, node, tag=None):
+    t, a, b = node
+    if tag is not None and t != tag: raise ValueError("structure")
+    out, p = [], a
+    while p < b:
+        e = der(o, p)
+        if e[2] > b: raise ValueError("der")
+        out.append((e, p)); p = e[2]
+    if p != b: raise ValueError("der")
+    return out
+
+
+def oid_of(o, node):
+    t, a, b = node
+    if t != 6: raise ValueError("oid")
+    c = o[a:b]; r = [c[0] // 40, c[0] % 40]; v = 0
+    for x in c[1:]:
+        v = v * 128 + (x & 0x7F)
+        if not x & 0x80: r.append(v); v = 0
+    return ".".join(map(str, r))
+
+
+def gen_time(o, node):
+    t, a, b = node
+    if t != 0x18: raise ValueError("date")
+    from datetime import timezone
+    s = o[a:b].decode()
+    frac = s[14:-1]
+    d = datetime.strptime(s[:14], "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+    return d.replace(microsecond=int(round(float("0" + frac) * 1e6)) if frac else 0)
+
+
+def verify_iic_token(tsr, fingerprint, roots, policies, crl_der=None):
+    """Full check of an IIC TSA TimeStampResp. roots: list of (DER, is_test). Raises ValueError(reason)."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    o = tsr
+    top = der(o)
+    if top[0] != 0x30 or top[2] != len(o): raise ValueError("response")
+    resp = kids(o, top, 0x30)
+    if len(resp) != 2: raise ValueError("response")
+    status = kids(o, resp[0][0], 0x30)[0][0]
+    if int.from_bytes(o[status[1]:status[2]], "big") not in (0, 1): raise ValueError("refused")
+    ci = kids(o, resp[1][0], 0x30)
+    if len(ci) != 2 or oid_of(o, ci[0][0]) != "1.2.840.113549.1.7.2" or ci[1][0][0] != 0xA0: raise ValueError("signed-data")
+    sd = kids(o, kids(o, ci[1][0])[0][0], 0x30)
+    if o[sd[0][0][1]:sd[0][0][2]] != b"\x03": raise ValueError("signed-data")
+    encap = kids(o, sd[2][0], 0x30)
+    if oid_of(o, encap[0][0]) != "1.2.840.113549.1.9.16.1.4": raise ValueError("tst-info")
+    octets = kids(o, encap[1][0])[0][0]
+    if octets[0] != 0x04: raise ValueError("tst-info")
+    tst_der = o[octets[1]:octets[2]]
+    tst = kids(tst_der, der(tst_der), 0x30)
+    policy = oid_of(tst_der, tst[1][0])
+    mi = kids(tst_der, tst[2][0], 0x30)
+    if oid_of(tst_der, kids(tst_der, mi[0][0], 0x30)[0][0]) != "2.16.840.1.101.3.4.2.1": raise ValueError("hash algorithm")
+    if tst_der[mi[1][0][1]:mi[1][0][2]].hex() != fingerprint: raise ValueError("fingerprint")
+    if policy not in policies: raise ValueError("policy " + policy)
+    serial = int.from_bytes(tst_der[tst[3][0][1]:tst[3][0][2]], "big")
+    when = gen_time(tst_der, tst[4][0])
+    accuracy = None
+    acc = next((e for e, _ in tst[5:] if e[0] == 0x30), None)
+    if acc:
+        accuracy = 0.0
+        for e, _ in kids(tst_der, acc):
+            v = int.from_bytes(tst_der[e[1]:e[2]], "big")
+            accuracy += {0x02: v, 0x80: v / 1e3, 0x81: v / 1e6}.get(e[0], 0)
+    certs = [o[p:e[2]] for node, _ in sd if node[0] == 0xA0 for e, p in kids(o, node) if e[0] == 0x30]
+    infos = kids(o, sd[-1][0], 0x31)
+    if len(infos) != 1: raise ValueError("signer-info")
+    si = kids(o, infos[0][0], 0x30)
+    attrs_node, attrs_pos = next(((e, p) for e, p in si if e[0] == 0xA0), (None, None))
+    if attrs_node is None: raise ValueError("signed attributes")
+    attrs = {}
+    for e, _ in kids(o, attrs_node):
+        t, v = [x for x, _ in kids(o, e, 0x30)]
+        vals = kids(o, v, 0x31)
+        if len(vals) != 1: raise ValueError("signed attributes")
+        attrs[oid_of(o, t)] = vals[0][0]
+    ct = attrs.get("1.2.840.113549.1.9.3"); md = attrs.get("1.2.840.113549.1.9.4"); scv2 = attrs.get("1.2.840.113549.1.9.16.2.47")
+    if ct is None or oid_of(o, ct) != "1.2.840.113549.1.9.16.1.4": raise ValueError("content-type")
+    if md is None or o[md[1]:md[2]] != hashlib.sha256(tst_der).digest(): raise ValueError("message-digest")
+    if scv2 is None: raise ValueError("signing-certificate-v2")
+    ess = [x for x, _ in kids(o, kids(o, kids(o, scv2, 0x30)[0][0], 0x30)[0][0], 0x30)]
+    k = 0
+    if ess[0][0] == 0x30:
+        if oid_of(o, kids(o, ess[0], 0x30)[0][0]) != "2.16.840.1.101.3.4.2.1": raise ValueError("ESSCertIDv2")
+        k = 1
+    cert_hash = o[ess[k][1]:ess[k][2]]
+    leaf_der = next((c for c in certs if hashlib.sha256(c).digest() == cert_hash), None)
+    if leaf_der is None: raise ValueError("signer certificate")
+    leaf = x509.load_der_x509_certificate(leaf_der)
+    i = [e for e, _ in si].index(attrs_node)
+    sig_alg, sig = si[i + 1][0], si[i + 2][0]
+    if oid_of(o, kids(o, sig_alg, 0x30)[0][0]) != "1.2.840.10045.4.3.2" or sig[0] != 0x04: raise ValueError("signature algorithm")
+    sid = kids(o, si[1][0], 0x30)
+    if o[sid[0][1]:sid[0][0][2]] != leaf.issuer.public_bytes() or int.from_bytes(o[sid[1][0][1]:sid[1][0][2]], "big") != leaf.serial_number:
+        raise ValueError("signer identifier")
+    signed = b"\x31" + o[attrs_pos + 1:attrs_node[2]]
+    try:
+        leaf.public_key().verify(o[sig[1]:sig[2]], signed, ec.ECDSA(hashes.SHA256()))
+    except Exception:
+        raise ValueError("signature")
+    root, test = None, False
+    for rder, is_test in roots:
+        r = x509.load_der_x509_certificate(rder)
+        if r.subject == leaf.issuer:
+            try:
+                r.public_key().verify(leaf.signature, leaf.tbs_certificate_bytes, ec.ECDSA(leaf.signature_hash_algorithm))
+                root, test = r, is_test
+            except Exception:
+                pass
+    if root is None: raise ValueError("unknown root")
+    try:
+        eku = leaf.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+        if not eku.critical or [u.dotted_string for u in eku.value] != ["1.3.6.1.5.5.7.3.8"]: raise ValueError("certificate usage")
+    except x509.ExtensionNotFound:
+        raise ValueError("certificate usage")
+    if not leaf.not_valid_before_utc <= when <= leaf.not_valid_after_utc: raise ValueError("certificate not valid at token time")
+    revocation = "not checked"
+    if crl_der:
+        crl = x509.load_der_x509_crl(crl_der)
+        if crl.issuer != root.subject or not crl.is_signature_valid(root.public_key()): raise ValueError("crl")
+        entry = crl.get_revoked_certificate_by_serial_number(leaf.serial_number)
+        if entry is not None:
+            try: cutoff = entry.extensions.get_extension_for_class(x509.InvalidityDate).value.invalidity_date_utc
+            except x509.ExtensionNotFound: cutoff = entry.revocation_date_utc
+            if when >= cutoff: raise ValueError("certificate revoked")
+            revocation = f"certificate revoked on {cutoff.isoformat()}, after this token"
+        else:
+            nu = crl.next_update_utc
+            revocation = "not revoked" + (" (revocation list out of date)" if nu and nu < datetime.now(when.tzinfo) else "")
+    return {"time": when, "accuracy": accuracy, "serial": "%x" % serial, "policy": policy, "test": test, "revocation": revocation}
+
+
+def pem_to_der(data):
+    if b"-----BEGIN" in data:
+        return base64.b64decode(b"".join(l for l in data.splitlines() if l and not l.startswith(b"-----")))
+    return data
+
+
 def main():
     p = argparse.ArgumentParser(description="Independent verifier for VerifBox proofs.")
     p.add_argument("proof"); p.add_argument("file", nargs="?")
@@ -166,6 +329,11 @@ def main():
     p.add_argument("--offline", action="store_true", help="no network access (requires --keys); skips the DNS cross-check")
     p.add_argument("--root", action="append", default=[], metavar="KEYID:SHA256",
                    help="trust an additional root key, given by its identifier and full public-key SHA-256")
+    p.add_argument("--tsr", help="write the IIC TSA time-stamp token to this .tsr file, for 'openssl ts -verify'")
+    p.add_argument("--iic-root", help="IIC TSA root certificate (PEM or DER) instead of downloading it")
+    p.add_argument("--iic-crl", help="IIC TSA root CRL (DER) instead of downloading it")
+    p.add_argument("--iic-root-sha256", action="append", default=[], metavar="SHA256",
+                   help="trust an additional IIC TSA root certificate, given by the SHA-256 of its DER encoding")
     a = p.parse_args()
     ok, lines = True, []
     def check(passed, text):
@@ -265,6 +433,47 @@ def main():
             check(None, f"Attestation anchor written to {a.ots_attestation}: run  ots verify -d {expected} {a.ots_attestation}")
     else:
         check(None, "No anchor of the attestation (proof issued before the two-anchor format).")
+
+    # IIC TSA time-stamp token (RFC 3161), over the file fingerprint.
+    token = (proof.get("jetons") or {}).get("iic_tsa")
+    if token:
+        try:
+            tsr = base64.b64decode(token.get("tsr", ""), validate=True)
+            pins = {**PINNED_IIC_TSA_ROOTS, **{h.lower(): "command line" for h in a.iic_root_sha256}}
+            crl = open(a.iic_crl, "rb").read() if a.iic_crl else None
+            if a.iic_root:
+                candidates = [pem_to_der(open(a.iic_root, "rb").read())]
+            elif a.offline:
+                candidates = []
+            else:
+                with urllib.request.urlopen(IIC_TSA_TRUST_URL, timeout=15) as r:
+                    trust = json.load(r)
+                candidates = [base64.b64decode(x["certificat"]) for x in trust.get("racines", [])]
+                if crl is None and trust.get("crl"):
+                    with urllib.request.urlopen(urllib.parse.urljoin(IIC_TSA_TRUST_URL, trust["crl"]), timeout=15) as r:
+                        crl = r.read()
+            roots = [(d, hashlib.sha256(d).hexdigest() not in PINNED_IIC_TSA_ROOTS) for d in candidates
+                     if hashlib.sha256(d).hexdigest() in pins]
+            if not roots:
+                check(None, "IIC TSA time-stamp token present, but no pinned IIC TSA root is available: not checked "
+                            "(give --iic-root and --iic-root-sha256, or use a verifier version with the production root pinned).")
+            else:
+                r = verify_iic_token(tsr, c["empreinte"], roots, IIC_TSA_POLICIES + [IIC_TSA_TEST_POLICY])
+                if crl is not None:
+                    r = verify_iic_token(tsr, c["empreinte"], roots, IIC_TSA_POLICIES + [IIC_TSA_TEST_POLICY], crl)
+                label = "IIC TSA TEST token (test service, not a production proof)" if r["policy"] == IIC_TSA_TEST_POLICY else "IIC TSA time-stamp token (RFC 3161)"
+                acc = f", accuracy +/- {r['accuracy']:g} s" if r["accuracy"] is not None else ""
+                check(True if r["policy"] != IIC_TSA_TEST_POLICY else None,
+                      f"{label}: {r['time'].strftime('%Y-%m-%d %H:%M:%S')} UTC{acc}, serial {r['serial']}, revocation: {r['revocation']}")
+                gap = abs((r["time"] - parse_time(c["horodatage"])).total_seconds())
+                if gap > 10: check(None, f"The token time differs from the signed time by {gap:.0f} s")
+        except ValueError as e:
+            check(False, f"IIC TSA time-stamp token INVALID ({e})")
+        except Exception as e:
+            check(None, f"IIC TSA time-stamp token could not be checked ({e.__class__.__name__})")
+        if a.tsr and token.get("tsr"):
+            open(a.tsr, "wb").write(base64.b64decode(token["tsr"]))
+            check(None, f"Token written to {a.tsr}: openssl ts -verify -in {a.tsr} -data ORIGINAL_FILE -CAfile IIC_TSA_ROOT.pem")
 
     print(f"\nProof {c['identifiant']}  |  timestamp {c['horodatage']}  |  key {c['cle']}")
     for status, text in lines: print(f"  [{status}] {text}")

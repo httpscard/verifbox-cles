@@ -25,8 +25,8 @@ It exists so that anyone can check the VerifBox key file **without trusting veri
 </td>
 <td valign="top">
 <p>Three files, each with its own role. You keep them: VerifBox keeps no copy.</p>
-<p><strong>The proof</strong> <code>.verifbox.json</code><br>The authoritative document: the file’s fingerprint, the date and time, and both signatures. Issued immediately.</p>
-<p><strong>The Bitcoin anchor</strong> <code>.ots</code><br>A second proof, recorded in the Bitcoin blockchain and verifiable without VerifBox. Completed within a few hours.</p>
+<p><strong>The proof</strong> <code>.verifbox.json</code><br>The authoritative document: the file’s fingerprint, the date and time, both signatures and, since 10 October 2026, the IIC TSA time-stamp token (RFC 3161). Issued immediately.</p>
+<p><strong>The Bitcoin anchors</strong> <code>.ots</code><br>Two OpenTimestamps proofs, one for the file fingerprint and one for the signed attestation, recorded in the Bitcoin blockchain and verifiable without VerifBox. Completed within a few hours.</p>
 <p><strong>The certificate</strong> <code>PDF</code><br>A readable presentation of everything, with links to the Bitcoin block and transaction, to attach to a file or send to an adviser. Available once the anchor is confirmed.</p>
 <p><a href="https://verifbox.com/example-certificate-verifbox.pdf"><strong>View the example PDF →</strong></a></p>
 </td>
@@ -73,7 +73,18 @@ pip install cryptography dilithium-py
 python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
 ```
 
-The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle and the DNS publication, without contacting the VerifBox service. The root key is pinned in the script by the SHA-256 of its two public keys. Specification: https://verifbox.com/specification
+The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list), without contacting the VerifBox service. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256. Specification: https://verifbox.com/specification
+
+## IIC TSA time-stamp token
+
+Since 10 October 2026, each proof also carries an RFC 3161 time-stamp token over the file fingerprint, issued by **IIC TSA** (https://tsa.internetidentitycard.com/tsa). IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service. Its root certificate (`IIC TSA Root R1`, SHA-256 `86:52:E3:D1:3E:72:5F:7C:75:7C:FA:05:3D:64:13:60:AC:A4:43:CF:6C:09:D7:D6:DD:D4:4B:EA:85:1E:D3:B9`) and the root revocation list are published at https://verifbox.com/.well-known/iic-tsa.json. To check a token with OpenSSL alone:
+
+```bash
+python3 verifbox_verify.py proof.verifbox.json original-file --tsr token.tsr
+openssl ts -verify -data original-file -in token.tsr -CAfile iic-tsa-root.pem
+```
+
+Proofs issued before 10 October 2026 do not contain a token; they stay valid.
 
 ## Bundled cryptographic libraries
 
@@ -99,7 +110,7 @@ Ce dépôt publie les clés publiques de signature de **VerifBox** (https://veri
 
 Il permet de contrôler le fichier de clés de VerifBox **sans faire confiance au seul verifbox.com** : la même empreinte est publiée ici, dans le DNS d’internetidentitycard.com (signé par DNSSEC) et sur verifbox.com. Un fichier de clés substitué ne correspondrait pas aux trois.
 
-**Ce que vous obtenez** : la preuve (`.verifbox.json`), qui fait foi ; l’ancrage Bitcoin (`.ots`), vérifiable sans VerifBox ; et un certificat PDF lisible, disponible une fois l’ancrage confirmé ([exemple](https://verifbox.com/exemple-certificat-verifbox.pdf)).
+**Ce que vous obtenez** : la preuve (`.verifbox.json`), qui fait foi et contient, depuis le 10 octobre 2026, le jeton d’horodatage IIC TSA (RFC 3161, vérifiable avec OpenSSL et la racine publiée sur verifbox.com/.well-known/iic-tsa.json ; IIC TSA est exploité par la même société que VerifBox) ; les deux ancrages Bitcoin (`.ots`), vérifiables sans VerifBox ; et un certificat PDF lisible, disponible une fois l’ancrage confirmé ([exemple](https://verifbox.com/exemple-certificat-verifbox.pdf)).
 
 Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC. Empreinte SHA-256 du fichier `verifbox-cles.json` : `e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d`.
 
