@@ -2,7 +2,7 @@
 """
 verifbox_verify.py - Independent verifier for VerifBox timestamp proofs (format verifbox-preuve-1).
 
-Checks, without contacting the VerifBox service:
+Checks, without contacting the VerifBox API (the key file is fetched from verifbox.com unless --keys or --offline is given):
   - the file's SHA-256 fingerprint against the proof,
   - the Ed25519 and ML-DSA-65 (FIPS 204) signatures,
   - the signing key: identifier, attestation chain, validity period, revocation status,
