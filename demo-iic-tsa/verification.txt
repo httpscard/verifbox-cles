@@ -1,0 +1,16 @@
+Public keys: https://verifbox.com/.well-known/verifbox-cles.json
+  SHA-256 of the key file: e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d
+
+Proof 54b07a24cc8d404da5a127dfa2d818f6  |  timestamp 2026-10-10T18:53:10.995Z  |  key 258e57366bcdb6ce
+  [PASS] Key file matches its independent publication (_verifbox.internetidentitycard.com, DNSSEC-validated)
+  [PASS] Ed25519 signature
+  [PASS] ML-DSA-65 (FIPS 204) signature
+  [PASS] Key 258e57366bcdb6ce: trusted (pinned root or attested by a trusted key)
+  [PASS] Proof dated after the key was put into service (2026-10-03T06:20:00Z)
+  [PASS] File fingerprint matches (0d94170ac58605a91251bb6b2b6bf5f9243995ecd23ed2c83af20b64ffa95529)
+  [PASS] The embedded Bitcoin anchor refers to this fingerprint (structural check; verify it against Bitcoin with 'ots verify')
+  [NOTE] Bitcoin anchor present: use --ots FILE.ots, then 'ots verify' to check it against Bitcoin.
+  [PASS] The embedded anchor of the attestation refers to this attestation (structural check; digest bd19eb760bb02c361faf3a6ecd8ca496c811beb83f7f6fde47caf16e08a7cddf)
+  [PASS] IIC TSA time-stamp token (RFC 3161): 2026-10-10 18:53:11 UTC, accuracy +/- 1 s, serial 47d70c22c4f47cf4e0766104d85b056e, revocation: not revoked
+
+RESULT: VALID (signatures and file)
