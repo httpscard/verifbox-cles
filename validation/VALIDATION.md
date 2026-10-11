@@ -1,6 +1,6 @@
 # VerifBox — reproducible validation report
 
-**Version 1.1 — 11 October 2026.** Everything in this folder can be re-run by anyone, without an account and without trusting the result shown by verifbox.com. The expected outputs recorded in `expected/` were produced on 11 October 2026 with the verifiers published in this repository; the Bitcoin blocks named below are public and permanent.
+**Version 1.2 — 11 October 2026.** Everything in this folder can be re-run by anyone, without an account and without trusting the result shown by verifbox.com. The expected outputs recorded in `expected/` were produced on 11 October 2026 with the verifiers published in this repository; the Bitcoin blocks named below are public and permanent.
 
 Operator: HTTPS CARD — INTERNET IDENTITY CARD LIMITED (England and Wales no. 09168431). VerifBox and IIC TSA are operated by the same company; IIC TSA is designed to RFC 3161 / RFC 5816 and is not a qualified trust service. This report demonstrates that the published mechanisms work together; it is not an independent audit.
 
@@ -96,7 +96,7 @@ python3 ../verifbox_verify.py test-key-shifted-time.json demo-file.txt \
 
 - It does not show the clock checks of IIC TSA (four time sources over TLS) from the outside: a token only carries the resulting time and its declared accuracy of ± 1 s. The nightly journal batches, time-stamped by DigiCert and anchored in Bitcoin, show after the fact that no token was back-dated; they do not make the second itself independent of the operator.
 - It does not include a key revocation. The procedure is specified (specification, section 9) and rehearsed in test; a public rehearsal with a retired production key will be added to this report when the first rotation happens.
-- `verifbox-cles.json.ots` (the anchor of the key file itself) is still pending at the time of this version; it will be upgraded once its block exists.
+- `verifbox-cles.json.ots` (the anchor of the key file itself) was completed on 11 October 2026: block **970891**, merkle root `f7b5c1d9b65abd4517d6eb2a7a5204e2a1b074265d21c71e39ff2545291aaafe` (`ots --no-bitcoin verify -f ../verifbox-cles.json ../verifbox-cles.json.ots`). The key file therefore provably existed before 08:36 UTC that day.
 - Bitcoin block times are not precise to the second (about two hours of tolerance); the anchors establish an upper bound, the token the second.
 
 ## 4. Re-running on your own file

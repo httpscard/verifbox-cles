@@ -71,7 +71,7 @@ Each published version of `verifbox-cles.json` is also anchored in the Bitcoin b
 ots verify -f verifbox-cles.json verifbox-cles.json.ots
 ```
 
-(The anchor of a freshly published key file is "pending" for a few hours, until its Bitcoin block exists; `ots upgrade verifbox-cles.json.ots` fetches the completed proof.)
+The current key file (`258e57366bcdb6ce`, SHA-256 `e0f8ef80…c565d`) is anchored in **Bitcoin block 970891** (11 October 2026, 08:36 UTC; merkle root `f7b5c1d9…aafe`), which `ots --no-bitcoin verify` names and any block explorer confirms. (The anchor of a freshly published key file is "pending" for a few hours, until its Bitcoin block exists; `ots upgrade verifbox-cles.json.ots` fetches the completed proof.)
 
 ```bash
 curl -s https://verifbox.com/.well-known/verifbox-cles.json | shasum -a 256
