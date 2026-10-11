@@ -33,6 +33,12 @@ It exists so that anyone can check the VerifBox key file **without trusting veri
 </tr>
 </table>
 
+## Verification architecture, end to end
+
+The complete architecture — browser, VerifBox engine, IIC TSA (time guardian, Cloud KMS key, issuance journal, nightly third-party anchoring), two-level PKI, publication points, and the checks every verifier performs — on one page. Version 1.1, state of 11 October 2026. Also as a [PDF](verifbox-architecture.pdf).
+
+<p align="center"><a href="verifbox-architecture.png"><img src="verifbox-architecture.png" alt="VerifBox and IIC TSA verification architecture, end to end" width="100%"></a></p>
+
 ## Public demonstration proofs
 
 The [`demo-iic-tsa/`](demo-iic-tsa/) folder contains a real proof of 10 October 2026 with the double Bitcoin anchoring **and the IIC TSA time-stamp token** (proof `54b07a24…`, block 970,811), the original file, the `.ots` and `.tsr` files, the IIC TSA root certificate and the commands to replay every check, OpenSSL included. It is the proof behind the example certificate below. The [`demo/`](demo/) folder keeps an earlier proof of 5 October 2026, without token.
