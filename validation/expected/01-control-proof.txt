@@ -1,5 +1,6 @@
 Public keys: https://verifbox.com/.well-known/verifbox-cles.json
   SHA-256 of the key file: e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d
+  Keys and revocation status as loaded now, 2026-10-11 08:37 UTC
 
 Proof 5013a88de0404f459affd81f156e9d6b  |  timestamp 2026-10-10T21:56:02.854Z  |  key 258e57366bcdb6ce
   [PASS] Key file matches its independent publication (_verifbox.internetidentitycard.com, DNSSEC-validated)
@@ -9,12 +10,9 @@ Proof 5013a88de0404f459affd81f156e9d6b  |  timestamp 2026-10-10T21:56:02.854Z  |
   [PASS] Proof dated after the key was put into service (2026-10-03T06:20:00Z)
   [PASS] File fingerprint matches (508e1f94434eed75e3255bc24be151b5ebb1a573f391451a47f9219ccc4afe26)
   [PASS] The embedded Bitcoin anchor refers to this fingerprint (structural check; verify it against Bitcoin with 'ots verify')
-  [NOTE] Anchor written to control-file.ots: run  ots verify control-file.ots  (with the original file alongside)
   [PASS] Bitcoin anchor of the file confirmed: block 970834, merkle root ded0fe153e2aee9f... matches blockstream.info and mempool.space
   [PASS] The embedded anchor of the attestation refers to this attestation (structural check; digest 24189485af8d71d5ca30424259a77c60047fb505e07414526c22b91c362b13e6)
-  [NOTE] Attestation anchor written to control-attestation.ots: run  ots verify -d 24189485af8d71d5ca30424259a77c60047fb505e07414526c22b91c362b13e6 control-attestation.ots
   [PASS] IIC TSA time-stamp token (RFC 3161): 2026-10-10 21:56:05 UTC, accuracy +/- 1 s, serial 361369691b302c2066217a307191a01d, revocation: not revoked
   [PASS] Token time and signed time agree to within 10 s (gap 2 s)
-  [NOTE] Token written to control-token.tsr: openssl ts -verify -in control-token.tsr -data ORIGINAL_FILE -CAfile IIC_TSA_ROOT.pem
 
 RESULT: VALID (signatures and file)

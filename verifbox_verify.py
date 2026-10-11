@@ -119,6 +119,36 @@ def explorers_merkle_root(height):
     return found
 
 
+def ots_block_check(ots_bytes, label, check, file=None, digest=None):
+    """Walk an OpenTimestamps proof with the ots client (no Bitcoin node needed), then compare the merkle root it
+    commits to with two independent public block explorers. Reports PASS / FAIL / NOTE through check()."""
+    with tempfile.NamedTemporaryFile(suffix=".ots", delete=False) as tmp:
+        tmp.write(ots_bytes); tmp_path = tmp.name
+    try:
+        target = ["-f", file] if file else ["-d", digest]
+        r = subprocess.run(["ots", "--no-bitcoin", "verify"] + target + [tmp_path], capture_output=True, text=True, timeout=120)
+        out = (r.stdout + r.stderr).strip()
+        m = re.search(r"block (\d+) has merkleroot ([0-9a-f]{64})", out)
+        if m:
+            height, root = int(m.group(1)), m.group(2)
+            agree = explorers_merkle_root(height)
+            if agree and all(v == root for v in agree.values()):
+                check(True, f"{label} confirmed: block {height}, merkle root {root[:16]}... matches " + " and ".join(agree))
+            elif agree:
+                check(False, f"{label} does NOT match block {height}: merkle root {root} vs " + ", ".join(f"{k}: {v}" for k, v in agree.items()))
+            else:
+                check(None, f"{label} commits to block {height} (merkle root {root}); no block explorer reachable to confirm it. "
+                            f"Check that block {height} has this merkle root, or run 'ots verify' with a Bitcoin node.")
+        elif "pending" in out.lower():
+            check(None, f"{label} pending: not yet in a block (come back later and load the completed proof).")
+        else:
+            check(None, f"{label}: ots verify did not establish a block: " + out.replace("\n", " | "))
+    except Exception as e:
+        check(None, f"{label}: ots verify could not run ({e.__class__.__name__})")
+    finally:
+        os.unlink(tmp_path)
+
+
 def ots_digest(ots):
     return ots[33:65].hex() if ots.startswith(OTS_MAGIC) and ots[31] == 1 and ots[32] == 0x08 else None
 
@@ -430,34 +460,8 @@ def main():
             check(None, f"Anchor written to {a.ots}: run  ots verify {a.ots}  (with the original file alongside)")
         # If the OpenTimestamps client is installed and the original file is at hand, check the anchor against
         # Bitcoin right away: "ots verify" is the only control that establishes the block, the structural check above does not.
-        ots_cli = shutil.which("ots")
-        if ots_cli and a.file:
-            with tempfile.NamedTemporaryFile(suffix=".ots", delete=False) as tmp:
-                tmp.write(ots); tmp_path = tmp.name
-            try:
-                # Without a local Bitcoin node, "ots --no-bitcoin verify" walks the proof and names the block and the
-                # merkle root it commits to; the merkle root is then compared with two public block explorers.
-                r = subprocess.run([ots_cli, "--no-bitcoin", "verify", "-f", a.file, tmp_path], capture_output=True, text=True, timeout=120)
-                out = (r.stdout + r.stderr).strip()
-                m = re.search(r"block (\d+) has merkleroot ([0-9a-f]{64})", out)
-                if m:
-                    height, root = int(m.group(1)), m.group(2)
-                    agree = explorers_merkle_root(height)
-                    if agree and all(v == root for v in agree.values()):
-                        check(True, f"Bitcoin anchor of the file confirmed: block {height}, merkle root {root[:16]}... matches " + " and ".join(agree))
-                    elif agree:
-                        check(False, f"Bitcoin anchor of the file does NOT match block {height}: merkle root {root} vs " + ", ".join(f"{k}: {v}" for k, v in agree.items()))
-                    else:
-                        check(None, f"Bitcoin anchor commits to block {height} (merkle root {root}); no block explorer reachable to confirm it. "
-                                    f"Check that block {height} has this merkle root, or run 'ots verify' with a Bitcoin node.")
-                elif "Pending" in out or "pending" in out:
-                    check(None, "Bitcoin anchor pending: not yet in a block (come back later and load the completed proof).")
-                else:
-                    check(None, "ots verify did not establish a block: " + out.replace("\n", " | "))
-            except Exception as e:
-                check(None, f"ots verify could not run ({e.__class__.__name__})")
-            finally:
-                os.unlink(tmp_path)
+        if shutil.which("ots") and a.file:
+            ots_block_check(ots, "Bitcoin anchor of the file", check, file=a.file)
         elif not a.ots:
             check(None, "Bitcoin anchor present: structural check only. Install the OpenTimestamps client (pip install opentimestamps-client) "
                         "and give the original file, or use --ots FILE.ots then 'ots verify', to establish the Bitcoin block.")
@@ -475,6 +479,10 @@ def main():
         if same and a.ots_attestation:
             open(a.ots_attestation, "wb").write(att)
             check(None, f"Attestation anchor written to {a.ots_attestation}: run  ots verify -d {expected} {a.ots_attestation}")
+        if same and shutil.which("ots"):
+            ots_block_check(att, "Bitcoin anchor of the attestation", check, digest=expected)
+        elif same:
+            check(None, "Attestation anchor: structural check only; install the OpenTimestamps client to establish its Bitcoin block.")
     else:
         check(None, "No anchor of the attestation (proof issued before the two-anchor format).")
 

@@ -1,0 +1,17 @@
+Public keys: test-key.json
+  SHA-256 of the key file: a3606e0f4ecdee96674d11d5ce25b104d1fdb154941df8b46e88363bad0fb90f
+  Keys and revocation status as loaded now, 2026-10-11 08:40 UTC (local file: a revocation published after it was saved is not known here)
+
+Proof 8a20b61e9cde64bbff0392077c422931  |  timestamp 2026-10-10T18:50:10.995Z  |  key 519a044a17d3f175
+  [NOTE] Offline: compare the key file SHA-256 above with the TXT record _verifbox.internetidentitycard.com yourself.
+  [PASS] Ed25519 signature
+  [PASS] ML-DSA-65 (FIPS 204) signature
+  [PASS] Key 519a044a17d3f175: trusted (pinned root or attested by a trusted key)
+  [PASS] Proof dated after the key was put into service (2026-10-01T00:00:00Z)
+  [PASS] File fingerprint matches (0d94170ac58605a91251bb6b2b6bf5f9243995ecd23ed2c83af20b64ffa95529)
+  [NOTE] No Bitcoin anchor in this proof.
+  [NOTE] No anchor of the attestation (proof issued before the two-anchor format).
+  [PASS] IIC TSA time-stamp token (RFC 3161): 2026-10-10 18:53:11 UTC, accuracy +/- 1 s, serial 47d70c22c4f47cf4e0766104d85b056e, revocation: not checked
+  [FAIL] The token time differs from the signed time by 180 s (more than 10 s): the proof is inconsistent
+
+RESULT: NOT VALID
