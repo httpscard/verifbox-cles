@@ -105,7 +105,7 @@ The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, bo
 python3 verifbox_verify.py proof.verifbox.json original-file --bundle proof-folder.zip
 ```
 
-Gathers in one `.zip` everything needed to examine a proof without VerifBox: the proof, the signed attestation and its algorithms, both OpenTimestamps anchors, the IIC TSA token with its root, revocation list and policy, the public key file and its own anchor, a summary with UTC times and blocks, the verification report, a README with the commands, and `MANIFEST.sha256`. The folder adds no signature: each element proves itself. The original file is left out unless `--bundle-include-file` is given. The Verify page on verifbox.com produces the same folder in the browser. Specification, section 12; validation, section 2.8.
+Gathers in one `.zip` everything needed to examine a proof without VerifBox: the proof, the signed attestation and its algorithms, both OpenTimestamps anchors, the IIC TSA token with its root, revocation list and policy, the public key file and its own anchor, a summary with UTC times and blocks, the verification report, a README with the commands, and `MANIFEST.sha256`. The folder adds no signature: each element proves itself. The original file is left out unless `--bundle-include-file` is given. The Verify page on verifbox.com produces the same folder in the browser (its single download button), with the PDF certificate and the image to share added. Specification, section 12; validation, section 2.8.
 
 ## IIC TSA time-stamp token
 

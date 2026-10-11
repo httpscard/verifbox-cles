@@ -605,6 +605,9 @@ def main():
         # Bitcoin right away: "ots verify" is the only control that establishes the block, the structural check above does not.
         if shutil.which("ots") and a.file:
             bundle["file_block"] = ots_block_check(ots, "Bitcoin anchor of the file", check, file=a.file)
+        elif shutil.which("ots") and same:
+            # No original file: the anchor commits to the fingerprint itself, so the block can still be established from it.
+            bundle["file_block"] = ots_block_check(ots, "Bitcoin anchor of the file fingerprint", check, digest=c["empreinte"])
         elif not a.ots:
             check(None, "Bitcoin anchor present: structural check only. Install the OpenTimestamps client (pip install opentimestamps-client) "
                         "and give the original file, or use --ots FILE.ots then 'ots verify', to establish the Bitcoin block.")

@@ -94,7 +94,7 @@ python3 ../verifbox_verify.py test-key-shifted-time.json demo-file.txt \
 
 ### 2.8 Proof folder (`--bundle`)
 
-The verifier can gather every element of a proof in one folder that a third party can examine without VerifBox (specification, section 12). The Verify page on verifbox.com produces the same folder, in the browser.
+The verifier can gather every element of a proof in one folder that a third party can examine without VerifBox (specification, section 12). The Verify page on verifbox.com produces the same folder in the browser, with the PDF certificate and the image to share added when the original file was checked.
 
 ```bash
 python3 ../verifbox_verify.py control-file.verifbox.json control-file.txt --bundle control-folder.zip

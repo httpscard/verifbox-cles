@@ -17,10 +17,10 @@ verification-report.txt: OK
 $ cat summary.json
 {
   "format": "verifbox-dossier-1",
-  "created": "2026-10-11T17:14:35Z",
+  "created": "2026-10-11T18:12:32Z",
   "verifier": {
     "name": "verifbox_verify.py",
-    "version": "sha256:11badc6ffec5c4d908b8190b7d607f0c64e8834c0b113c1fa469d0536404a411"
+    "version": "sha256:e5545b99fd402c613c14c7f97939a55d1d216d2e44db2144aa1c04d0c3fe4c73"
   },
   "proof_id": "5013a88de0404f459affd81f156e9d6b",
   "proof_format": "verifbox-preuve-1",
