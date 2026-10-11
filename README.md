@@ -43,6 +43,10 @@ The complete architecture — browser, VerifBox engine, IIC TSA (time guardian, 
 
 The [`demo-iic-tsa/`](demo-iic-tsa/) folder contains a real proof of 10 October 2026 with the double Bitcoin anchoring **and the IIC TSA time-stamp token** (proof `54b07a24…`, block 970,811), the original file, the `.ots` and `.tsr` files, the IIC TSA root certificate and the commands to replay every check, OpenSSL included. It is the proof behind the example certificate below. The [`demo/`](demo/) folder keeps an earlier proof of 5 October 2026, without token.
 
+## Reproducible validation
+
+[`validation/VALIDATION.md`](validation/VALIDATION.md) holds two real production proofs with their files, the extracted `.ots` anchors and `.tsr` token, four negative vectors, the exact commands for each independent tool (Python verifier, OpenSSL, OpenTimestamps client, block explorers, browser) and the expected output of each, as recorded on 11 October 2026.
+
 ## Current key
 
 | | |

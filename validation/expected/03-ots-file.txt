@@ -1,0 +1,8 @@
+Not checking Bitcoin attestation; Bitcoin disabled
+To verify manually, check that Bitcoin block 970834 has merkleroot ded0fe153e2aee9fdba12a15ea3ae009fd9a0a74c90ff075925553c5891e2b00
+Not checking Bitcoin attestation; Bitcoin disabled
+To verify manually, check that Bitcoin block 970834 has merkleroot ded0fe153e2aee9fdba12a15ea3ae009fd9a0a74c90ff075925553c5891e2b00
+Not checking Bitcoin attestation; Bitcoin disabled
+To verify manually, check that Bitcoin block 970857 has merkleroot e2d8e7aa2675b07db7d33bccb6ab71c78988189b4f8fb9cb7954444dcf319c35
+Not checking Bitcoin attestation; Bitcoin disabled
+To verify manually, check that Bitcoin block 970874 has merkleroot 4d3558f2f0c655320423308eeb45fa61872a0628fe72230eed0455cf01efd751

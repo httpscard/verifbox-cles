@@ -1,0 +1,15 @@
+Public keys: https://verifbox.com/.well-known/verifbox-cles.json
+  SHA-256 of the key file: e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d
+
+Proof 54b07a24cc8d404da5a127dfa2d818f6  |  timestamp 2026-10-10T18:53:10.995Z  |  key 258e57366bcdb6ce
+  [PASS] Key file matches its independent publication (_verifbox.internetidentitycard.com, DNSSEC-validated)
+  [PASS] Ed25519 signature
+  [PASS] ML-DSA-65 (FIPS 204) signature
+  [PASS] Key 258e57366bcdb6ce: trusted (pinned root or attested by a trusted key)
+  [PASS] Proof dated after the key was put into service (2026-10-03T06:20:00Z)
+  [PASS] File fingerprint matches (0d94170ac58605a91251bb6b2b6bf5f9243995ecd23ed2c83af20b64ffa95529)
+  [NOTE] No Bitcoin anchor in this proof.
+  [NOTE] No anchor of the attestation (proof issued before the two-anchor format).
+  [NOTE] No IIC TSA time-stamp token in this proof (optional element, added since 10 October 2026): the signed time rests on the VerifBox signature alone.
+
+RESULT: VALID (signatures and file)
