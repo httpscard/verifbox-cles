@@ -28,7 +28,7 @@ Specification: https://verifbox.com/specification
 Exit code: 0 = valid, 1 = invalid, 2 = error.  Licence: MIT.
 """
 import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -368,7 +368,8 @@ def main():
     except Exception as e:
         print(f"ERROR: {e}"); return 2
 
-    print(f"Public keys: {origin}\n  SHA-256 of the key file: {keys_hash}")
+    print(f"Public keys: {origin}\n  SHA-256 of the key file: {keys_hash}\n  Keys and revocation status as loaded now, {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+          + (" (local file: a revocation published after it was saved is not known here)" if a.keys else ""))
     bad = check_schema(proof)
     if bad:
         # Malformed proof: stop here, before any function that assumes a correct structure.
