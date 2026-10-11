@@ -107,6 +107,10 @@ The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, bo
 
 ### Proof folder for a third party
 
+<p align="center"><img src="verifbox-proof-folder.png" alt="Contents of a VerifBox proof folder (.zip), file by file: certificate, image to share and caption, README; proof, signed attestation, two Bitcoin anchors, IIC TSA token; public keys, IIC TSA root and revocation list, manifest, summary and verification report; optional original file" width="100%"></p>
+
+<sub>* Added by the Verify page on verifbox.com only when the original file has been checked against the proof (and the file’s Bitcoin anchor is confirmed). The command-line verifier does not add them. <code>original/</code> holds a copy of the original file only on request; the folder is built in the browser, so the file is never sent to VerifBox either way. Same view on https://verifbox.com, section “Your proof folder, file by file”.</sub>
+
 ```bash
 python3 verifbox_verify.py proof.verifbox.json original-file --bundle proof-folder.zip
 ```
@@ -152,5 +156,7 @@ Il permet de contrôler le fichier de clés de VerifBox **sans faire confiance a
 Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC. Empreinte SHA-256 du fichier `verifbox-cles.json` : `e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d`.
 
 **Vérifier une preuve sans compétence technique** (seules les clés intégrées à la page servent de racines de confiance) : téléchargez `verifbox-verify-offline.html` depuis ce dépôt, ouvrez-le d’un double-clic dans votre navigateur (Windows, Mac ou Linux), puis déposez la preuve (`.verifbox.json`) et le fichier d’origine. La page fonctionne sans connexion internet et ne peut envoyer aucune donnée sur le réseau. Son interface existe en français.
+
+**Dossier de preuve (.zip)** : la page Vérifier de verifbox.com, une fois l’ancrage Bitcoin confirmé, télécharge un seul fichier `.zip` contenant tout ce qu’il faut pour examiner la preuve sans VerifBox : le certificat PDF, l’image à partager et son texte (seulement si le fichier d’origine a été vérifié), le LISEZ-MOI, la preuve, l’attestation signée, les deux ancrages Bitcoin, le jeton IIC TSA, les clés publiques et leur ancrage, la racine IIC TSA et sa liste de révocation, `MANIFEST.sha256`, un résumé et le rapport de vérification ; une copie du fichier d’origine seulement si vous cochez la case (le dossier est créé dans votre navigateur : le fichier n’est jamais envoyé à VerifBox). Détail fichier par fichier : image ci-dessus (section *Proof folder for a third party*) ou https://verifbox.com/fr, section « Votre dossier de preuve, fichier par fichier ». En ligne de commande : `python3 verifbox_verify.py preuve.verifbox.json fichier --bundle dossier.zip` (sans certificat ni image).
 
 Autres méthodes : voir ci-dessus, ou https://verifbox.com/fr/specification
