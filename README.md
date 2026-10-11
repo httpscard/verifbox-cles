@@ -99,6 +99,14 @@ python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
 
 The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list), without contacting the VerifBox service. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256. Specification: https://verifbox.com/specification
 
+### Proof folder for a third party
+
+```bash
+python3 verifbox_verify.py proof.verifbox.json original-file --bundle proof-folder.zip
+```
+
+Gathers in one `.zip` everything needed to examine a proof without VerifBox: the proof, the signed attestation and its algorithms, both OpenTimestamps anchors, the IIC TSA token with its root, revocation list and policy, the public key file and its own anchor, a summary with UTC times and blocks, the verification report, a README with the commands, and `MANIFEST.sha256`. The folder adds no signature: each element proves itself. The original file is left out unless `--bundle-include-file` is given. The Verify page on verifbox.com produces the same folder in the browser. Specification, section 12; validation, section 2.8.
+
 ## IIC TSA time-stamp token
 
 Since 10 October 2026, each proof also carries an RFC 3161 time-stamp token over the file fingerprint, issued by **IIC TSA** (https://tsa.internetidentitycard.com/tsa). IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service. Its root certificate (`IIC TSA Root R1`, SHA-256 `86:52:E3:D1:3E:72:5F:7C:75:7C:FA:05:3D:64:13:60:AC:A4:43:CF:6C:09:D7:D6:DD:D4:4B:EA:85:1E:D3:B9`) and the root revocation list are published at https://verifbox.com/.well-known/iic-tsa.json. To check a token with OpenSSL alone:

@@ -17,7 +17,9 @@ The Bitcoin anchor is checked separately with the official OpenTimestamps client
 Install:   pip install cryptography dilithium-py
 Usage:     python3 verifbox_verify.py PROOF.verifbox.json [ORIGINAL_FILE] [--keys verifbox-cles.json] [--ots OUT.ots] [--offline]
                                      [--root KEYID:SHA256] [--tsr OUT.tsr] [--iic-root ROOT.pem --iic-crl ROOT.crl]
-                                     [--iic-root-sha256 SHA256]
+                                     [--iic-root-sha256 SHA256] [--bundle FOLDER.zip [--bundle-include-file]]
+  --bundle writes a proof folder (.zip): every element needed to examine the proof without VerifBox, a report,
+  a README with the commands, and MANIFEST.sha256. It adds no signature (specification, section 12).
 
 Trust: the root key is PINNED in this file by the SHA-256 of its two public keys (PINNED_ROOTS). A key file
 can only add keys that are attested by a trusted key; an unknown root key is rejected.
@@ -134,6 +136,7 @@ def ots_block_check(ots_bytes, label, check, file=None, digest=None):
             agree = explorers_merkle_root(height)
             if agree and all(v == root for v in agree.values()):
                 check(True, f"{label} confirmed: block {height}, merkle root {root[:16]}... matches " + " and ".join(agree))
+                return height
             elif agree:
                 check(False, f"{label} does NOT match block {height}: merkle root {root} vs " + ", ".join(f"{k}: {v}" for k, v in agree.items()))
             else:
@@ -178,7 +181,7 @@ def load_keys(path):
     data = json.loads(raw)
     entries = data["cles"] if isinstance(data.get("cles"), list) else [data]
     keys = {e["cle"]: dict(e) for e in entries if all(k in e for k in ("cle", "ed25519_public", "mldsa65_public"))}
-    return keys, origin, hashlib.sha256(raw).hexdigest()
+    return keys, origin, hashlib.sha256(raw).hexdigest(), raw
 
 
 def trusted(key, keys, roots, seen=None):
@@ -362,6 +365,142 @@ def pem_to_der(data):
     return data
 
 
+BUNDLE_FORMAT = "verifbox-dossier-1"
+GITHUB_URL = "https://github.com/httpscard/verifbox-cles"
+
+
+def bundle_readme(r, en):
+    """README.txt (en) / LISEZ-MOI.txt (fr) of a proof folder; same text as the web verifier's (js/dossier.js)."""
+    f, a = r["fingerprint"], r["attestation_digest"]
+    orig = ("original/" + r["original_file_name"]) if r["original_file_included"] else ("ORIGINAL_FILE" if en else "FICHIER_ORIGINAL")
+    L = BUNDLE_TEXT["en" if en else "fr"]
+    intro = L["intro"].format(id=r["proof_id"], t=r["signed_time"], f=f)
+    out = [L["t"], "=" * len(L["t"]), "", intro, "", L["files"], "-" * len(L["files"])]
+    out += [f"  {n:<28} {d}" for n, d in r["contents"]]
+    out += ["", L["steps"], "-" * len(L["steps"]),
+            f"0. {L['s0']}", "   sha256sum -c MANIFEST.sha256        (macOS: shasum -a 256 -c MANIFEST.sha256)", "",
+            f"1. {L['s1']}", f"   {GITHUB_URL}/blob/main/verifbox_verify.py", "   pip install cryptography dilithium-py opentimestamps-client",
+            f"   python3 verifbox_verify.py proof.verifbox.json {orig} --keys verifbox-keys.json --offline" + (" \\" if r["token"] else "")]
+    if r["token"]: out.append("           --iic-root iic-tsa-root.pem --iic-crl iic-tsa-root.crl")
+    out += ["", L["node1"], L["node2"], ""]
+    if r["anchors"]["file"]: out += [f"2. {L['s2']}", f"   ots verify -f {orig} file-anchor.ots", f"   ots verify -d {f} file-anchor.ots", ""]
+    if r["anchors"]["attestation"]: out += [f"3. {L['s3']}", f"   ots verify -d {a} attestation-anchor.ots", L["digest"], ""]
+    if r["token"]: out += [f"4. {L['s4']}", "   openssl ts -reply -in iic-tsa-token.tsr -text",
+                           f"   openssl ts -verify -in iic-tsa-token.tsr -digest {f} -CAfile iic-tsa-root.pem", ""]
+    out += [f"5. {L['s5']}", "   ots verify -f verifbox-keys.json verifbox-keys.json.ots", f"   {GITHUB_URL}", "",
+            L["trust"], "-" * len(L["trust"]), f"- {L['t1']}", f"- {L['t2']}", f"- {L['t3']}", f"- {L['t4']}", "",
+            f"{L['spec']}: https://verifbox.com/specification", ""]
+    return "\n".join(out)
+
+
+BUNDLE_TEXT = {
+ "en": dict(t="VerifBox proof folder", files="Contents", steps="How to check it yourself", trust="Where trust comes from", spec="Format specification",
+   intro="Proof {id}, signed time {t} UTC, file fingerprint (SHA-256):\n  {f}\n\nThis folder lets anyone examine the proof without the VerifBox website. It adds no signature: each element below proves itself, and MANIFEST.sha256 only checks that no file of the folder was altered.",
+   s0="Integrity of the folder", s1="Signatures, key and IIC TSA token, offline (independent verifier, MIT licence)",
+   s2="Bitcoin anchor of the file (OpenTimestamps client)", s3="Bitcoin anchor of the signed attestation", s4="RFC 3161 token, with OpenSSL only",
+   s5="Public key file: its own Bitcoin anchor, and its independent publications",
+   node1='   (verifbox_verify.py checks each Bitcoin block against two public explorers. "ots verify" below needs a local',
+   node2="    Bitcoin node; without one, add --no-bitcoin and compare the block and merkle root it prints with any explorer.)",
+   digest='   (digest = SHA-256 of "verifbox-attestation-v1\\n" + canonical content + "\\n" + Ed25519 sig + "\\n" + ML-DSA-65 sig; see attestation.json)',
+   t1="The Bitcoin anchors are the only elements that do not depend on the operator: they show that the file and the signed attestation existed no later than their blocks.",
+   t2="IIC TSA is operated by HTTPS CARD - Internet Identity Card Limited, the company that publishes VerifBox: it is not an independent third party. It is not a qualified trust service (Regulation (EU) No 910/2014). Its token is checked against the IIC TSA Root R1, SHA-256 8652e3d13e725f7c757cfa053d641360aca443cf6c09d7d6ddd44bea851ed3b9 (published on tsa.internetidentitycard.com and in the Practice Statement).",
+   t3="Compare the SHA-256 of verifbox-keys.json with the DNS TXT record _verifbox.internetidentitycard.com (DNSSEC) and with GitHub.",
+   t4="verification-report.txt records what a verifier found when this folder was made. It is a record, not evidence: run the checks again."),
+ "fr": dict(t="Dossier de preuve VerifBox", files="Contenu", steps="Comment le vérifier soi-même", trust="D'où vient la confiance", spec="Spécification du format",
+   intro="Preuve {id}, heure signée {t} UTC, empreinte du fichier (SHA-256) :\n  {f}\n\nCe dossier permet à quiconque d'examiner la preuve sans le site VerifBox. Il n'ajoute aucune signature : chaque élément ci-dessous se prouve lui-même, et MANIFEST.sha256 vérifie seulement qu'aucun fichier du dossier n'a été modifié.",
+   s0="Intégrité du dossier", s1="Signatures, clé et jeton IIC TSA, hors ligne (vérificateur indépendant, licence MIT)",
+   s2="Ancrage Bitcoin du fichier (client OpenTimestamps)", s3="Ancrage Bitcoin de l'attestation signée", s4="Jeton RFC 3161, avec OpenSSL seul",
+   s5="Fichier des clés publiques : son propre ancrage Bitcoin et ses publications indépendantes",
+   node1='   (verifbox_verify.py contrôle chaque bloc Bitcoin auprès de deux explorateurs publics. "ots verify" ci-dessous',
+   node2="    demande un nœud Bitcoin local ; sans nœud, ajoutez --no-bitcoin et comparez le bloc et la racine de Merkle affichés avec un explorateur.)",
+   digest='   (empreinte = SHA-256 de "verifbox-attestation-v1\\n" + contenu canonique + "\\n" + signature Ed25519 + "\\n" + signature ML-DSA-65 ; voir attestation.json)',
+   t1="Les ancrages Bitcoin sont les seuls éléments qui ne dépendent pas de l'exploitant : ils montrent que le fichier et l'attestation signée existaient au plus tard à leur bloc.",
+   t2="IIC TSA est exploité par HTTPS CARD - Internet Identity Card Limited, la société qui publie VerifBox : ce n'est pas un tiers indépendant. Ce n'est pas un service de confiance qualifié (règlement (UE) n° 910/2014). Son jeton est vérifié avec la racine IIC TSA Root R1, SHA-256 8652e3d13e725f7c757cfa053d641360aca443cf6c09d7d6ddd44bea851ed3b9 (publiée sur tsa.internetidentitycard.com et dans la Practice Statement).",
+   t3="Comparez le SHA-256 de verifbox-keys.json avec l'enregistrement DNS TXT _verifbox.internetidentitycard.com (DNSSEC) et avec GitHub.",
+   t4="verification-report.txt consigne ce qu'un vérificateur a constaté à la création du dossier. C'est un relevé, pas une preuve : refaites les contrôles."),
+}
+
+
+def write_bundle(path, proof, lines, verdict, keys_raw, keys_ots, iic, include_file, checked_file):
+    """Proof folder (.zip): the elements of the proof, each verifiable on its own; MANIFEST.sha256 checks integrity only.
+    Adds no signature. Same layout as the web verifier's 'Proof folder (.zip)' button."""
+    import zipfile
+    c, s = proof["contenu"], proof["signatures"]
+    now = datetime.now(timezone.utc)
+    files, contents = [], []
+    def add(name, data, en, fr=None):
+        files.append((name, data)); contents.append((name, en, fr or en))
+    dump = lambda o: json.dumps(o, ensure_ascii=False, indent=2).encode() + b"\n"
+    add("proof.verifbox.json", dump(proof), "the proof (anchors completed when possible; signed content unchanged)", "la preuve (ancrages complétés si possible ; contenu signé inchangé)")
+    msg = PROOF_PREFIX + canonical(c)
+    att = {"format": c["format"], "signed_content": c,
+           "signed_message": 'UTF-8 of "verifbox-preuve-v1\\n" followed by the canonical JSON of signed_content (keys sorted, no spaces)',
+           "signed_message_sha256": hashlib.sha256(msg).hexdigest(),
+           "signatures": {"ed25519": s["ed25519"], "ml_dsa_65": s["ml_dsa_65"]},
+           "algorithms": {"ed25519": "Ed25519 (RFC 8032), base64url", "ml_dsa_65": "ML-DSA-65 (FIPS 204), pure mode, empty context, base64url"},
+           "key_id": c["cle"], "attestation_digest": attestation_digest(c, s)}
+    add("attestation.json", dump(att), "signed content, signed message, both signatures and algorithms", "contenu signé, message signé, les deux signatures et leurs algorithmes")
+    anc = proof.get("ancrages") or {}
+    if (anc.get("bitcoin") or {}).get("ots"):
+        add("file-anchor.ots", base64.b64decode(anc["bitcoin"]["ots"]), "OpenTimestamps anchor of the file fingerprint", "ancrage OpenTimestamps de l'empreinte du fichier")
+    if (anc.get("attestation") or {}).get("ots"):
+        add("attestation-anchor.ots", base64.b64decode(anc["attestation"]["ots"]), "OpenTimestamps anchor of the signed attestation", "ancrage OpenTimestamps de l'attestation signée")
+    tok = (proof.get("jetons") or {}).get("iic_tsa")
+    root_sha = None
+    if tok and tok.get("tsr"):
+        add("iic-tsa-token.tsr", base64.b64decode(tok["tsr"]), "IIC TSA RFC 3161 time-stamp response over the file fingerprint", "réponse d'horodatage RFC 3161 d'IIC TSA sur l'empreinte du fichier")
+        if iic["root"]:
+            root_sha = hashlib.sha256(iic["root"]).hexdigest()
+            b64 = base64.b64encode(iic["root"]).decode()
+            pem = "-----BEGIN CERTIFICATE-----\n" + "\n".join(b64[i:i + 64] for i in range(0, len(b64), 64)) + "\n-----END CERTIFICATE-----\n"
+            add("iic-tsa-root.pem", pem.encode(), f"IIC TSA Root R1, SHA-256 (DER) {root_sha}")
+        if iic["crl"]:
+            add("iic-tsa-root.crl", iic["crl"], "IIC TSA root CRL (DER)", "liste de révocation de la racine IIC TSA (DER)")
+        if iic["trust"]:
+            add("iic-tsa-trust.json", iic["trust"], "IIC TSA trust file: roots, policy OID, CRL location", "fichier de confiance IIC TSA : racines, OID de politique, emplacement de la CRL")
+    kh = hashlib.sha256(keys_raw).hexdigest()
+    add("verifbox-keys.json", keys_raw, f"VerifBox public keys, SHA-256 {kh}", f"clés publiques VerifBox, SHA-256 {kh}")
+    if keys_ots:
+        add("verifbox-keys.json.ots", keys_ots, "OpenTimestamps anchor of the key file", "ancrage OpenTimestamps du fichier des clés")
+    safe = None
+    if include_file:
+        safe = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", os.path.basename(include_file)).lstrip(".")[:120] or "file"
+        add("original/" + safe, open(include_file, "rb").read(), "the original file (included at the user’s request)", "le fichier d’origine (inclus à la demande de l’utilisateur)")
+    def blk(x, confirmed):
+        # block: the one this verifier confirmed against two explorers, else the one recorded in the proof (unsigned field).
+        if not (x or {}).get("ots"): return None
+        state = "complete" if (confirmed or x.get("etat") == "complet") else x.get("etat")
+        return {k: v for k, v in (("state", state), ("block", confirmed or x.get("bloc")), ("block_time", x.get("date_bloc"))) if v is not None}
+    t = iic["token"]
+    summary = {"format": BUNDLE_FORMAT, "created": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+               "verifier": {"name": "verifbox_verify.py", "version": "sha256:" + hashlib.sha256(open(__file__, "rb").read()).hexdigest()},
+               "proof_id": c["identifiant"], "proof_format": c["format"], "fingerprint": c["empreinte"], "hash_algorithm": c["algorithme"],
+               "signed_time": c["horodatage"], "key_id": c["cle"],
+               "original_file_name": safe or (proof.get("informatif") or {}).get("fichier") or (os.path.basename(checked_file) if checked_file else None),
+               "original_file_included": bool(include_file), "attestation_digest": att["attestation_digest"],
+               "anchors": {"file": blk(anc.get("bitcoin"), iic.get("file_block")), "attestation": blk(anc.get("attestation"), iic.get("att_block"))},
+               "token": ({"issuer": "IIC TSA (same company as VerifBox)", "time": t["time"].isoformat().replace("+00:00", "Z") if t else tok.get("heure"),
+                          "serial": t["serial"] if t else tok.get("serie"), "policy": t["policy"] if t else tok.get("politique"),
+                          "root_sha256": root_sha, "revocation": t["revocation"] if t else None} if tok else None),
+               "verdict": verdict}
+    add("summary.json", dump(summary), "machine-readable summary: identifiers, UTC times, blocks, token", "résumé lisible par machine : identifiants, heures UTC, blocs, jeton")
+    report = ["VerifBox verification report", "RECORD ONLY, NOT AN ELEMENT OF PROOF: run the checks again (README.txt).",
+              f"Verifier: verifbox_verify.py, {summary['verifier']['version']}", f"Checked at: {summary['created']}",
+              f"Proof: {c['identifiant']}  |  {c['horodatage']}  |  key {c['cle']}", ""] + [f"  [{st}] {tx}" for st, tx in lines] + ["", f"RESULT: {verdict}", ""]
+    add("verification-report.txt", "\n".join(report).encode(), "what this verifier found when the folder was made (record only)", "ce que ce vérificateur a constaté à la création du dossier (relevé seulement)")
+    contents += [("README.txt / LISEZ-MOI.txt", "this text, in English / in French", "ce texte, en anglais / en français"),
+                 ("MANIFEST.sha256", "SHA-256 of every other file (sha256sum format)", "SHA-256 de chaque autre fichier (format sha256sum)")]
+    files.append(("README.txt", bundle_readme({**summary, "contents": [(n, e) for n, e, _ in contents]}, True).encode()))
+    files.append(("LISEZ-MOI.txt", bundle_readme({**summary, "contents": [(n, f) for n, _, f in contents]}, False).encode()))
+    files.sort()
+    files.append(("MANIFEST.sha256", "".join(f"{hashlib.sha256(d).hexdigest()}  {n}\n" for n, d in files).encode()))
+    top = f"verifbox-dossier-{c['identifiant'][:8]}/"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+        for n, d in files:
+            zi = zipfile.ZipInfo(top + n, now.timetuple()[:6]); zi.external_attr = 0o100644 << 16
+            z.writestr(zi, d)
+
+
 def main():
     p = argparse.ArgumentParser(description="Independent verifier for VerifBox proofs.")
     p.add_argument("proof"); p.add_argument("file", nargs="?")
@@ -376,7 +515,11 @@ def main():
     p.add_argument("--iic-crl", help="IIC TSA root CRL (DER) instead of downloading it")
     p.add_argument("--iic-root-sha256", action="append", default=[], metavar="SHA256",
                    help="trust an additional IIC TSA root certificate, given by the SHA-256 of its DER encoding")
+    p.add_argument("--bundle", metavar="FOLDER.zip", help="also write a proof folder (.zip) with every element needed to examine the proof "
+                   "without VerifBox: proof, attestation, anchors, token, roots, keys, report, README, MANIFEST.sha256")
+    p.add_argument("--bundle-include-file", action="store_true", help="put the original file in the proof folder (left out by default)")
     a = p.parse_args()
+    bundle = {"trust": None, "root": None, "crl": None, "token": None}
     ok, lines = True, []
     def check(passed, text):
         nonlocal ok
@@ -394,7 +537,7 @@ def main():
         c = proof.get("contenu") if isinstance(proof.get("contenu"), dict) else {}
         s = proof.get("signatures") if isinstance(proof.get("signatures"), dict) else {}
         if a.offline and not a.keys: raise ValueError("--offline requires --keys")
-        keys, origin, keys_hash = load_keys(a.keys)
+        keys, origin, keys_hash, keys_raw = load_keys(a.keys)
     except Exception as e:
         print(f"ERROR: {e}"); return 2
 
@@ -461,7 +604,7 @@ def main():
         # If the OpenTimestamps client is installed and the original file is at hand, check the anchor against
         # Bitcoin right away: "ots verify" is the only control that establishes the block, the structural check above does not.
         if shutil.which("ots") and a.file:
-            ots_block_check(ots, "Bitcoin anchor of the file", check, file=a.file)
+            bundle["file_block"] = ots_block_check(ots, "Bitcoin anchor of the file", check, file=a.file)
         elif not a.ots:
             check(None, "Bitcoin anchor present: structural check only. Install the OpenTimestamps client (pip install opentimestamps-client) "
                         "and give the original file, or use --ots FILE.ots then 'ots verify', to establish the Bitcoin block.")
@@ -480,7 +623,7 @@ def main():
             open(a.ots_attestation, "wb").write(att)
             check(None, f"Attestation anchor written to {a.ots_attestation}: run  ots verify -d {expected} {a.ots_attestation}")
         if same and shutil.which("ots"):
-            ots_block_check(att, "Bitcoin anchor of the attestation", check, digest=expected)
+            bundle["att_block"] = ots_block_check(att, "Bitcoin anchor of the attestation", check, digest=expected)
         elif same:
             check(None, "Attestation anchor: structural check only; install the OpenTimestamps client to establish its Bitcoin block.")
     else:
@@ -503,6 +646,7 @@ def main():
                 with urllib.request.urlopen(IIC_TSA_TRUST_URL, timeout=15) as r:
                     trust = json.load(r)
                 candidates = [base64.b64decode(x["certificat"]) for x in trust.get("racines", [])]
+                bundle["trust"] = json.dumps(trust, ensure_ascii=False, indent=2).encode() + b"\n"
                 if crl is None and trust.get("crl"):
                     with urllib.request.urlopen(urllib.parse.urljoin(IIC_TSA_TRUST_URL, trust["crl"]), timeout=15) as r:
                         crl = r.read()
@@ -512,9 +656,11 @@ def main():
                 check(None, "IIC TSA time-stamp token present, but no pinned IIC TSA root is available: not checked "
                             "(give --iic-root and --iic-root-sha256, or use a verifier version with the production root pinned).")
             else:
+                bundle["root"] = next((d for d, extra in roots if not extra), roots[0][0])
                 r = verify_iic_token(tsr, c["empreinte"], roots, IIC_TSA_POLICIES + [IIC_TSA_TEST_POLICY])
                 if crl is not None:
                     r = verify_iic_token(tsr, c["empreinte"], roots, IIC_TSA_POLICIES + [IIC_TSA_TEST_POLICY], crl)
+                bundle["crl"], bundle["token"] = crl, r
                 label = "IIC TSA TEST token (test service, not a production proof)" if r["policy"] == IIC_TSA_TEST_POLICY else "IIC TSA time-stamp token (RFC 3161)"
                 acc = f", accuracy +/- {r['accuracy']:g} s" if r["accuracy"] is not None else ""
                 check(True if r["policy"] != IIC_TSA_TEST_POLICY else None,
@@ -536,6 +682,18 @@ def main():
     elif a.file: verdict = "VALID (signatures and file)"
     else: verdict = "VALID SIGNATURES (original file not checked: provide it to confirm the fingerprint)"
     print("\nRESULT: " + verdict)
+    if a.bundle:
+        try:
+            ots_keys = None
+            if a.keys and os.path.exists(a.keys + ".ots"):
+                ots_keys = open(a.keys + ".ots", "rb").read()
+            elif not a.offline:
+                with urllib.request.urlopen(KEYS_URL + ".ots", timeout=15) as r: ots_keys = r.read()
+            write_bundle(a.bundle, proof, lines, verdict, keys_raw, ots_keys, bundle,
+                         a.file if (a.file and a.bundle_include_file) else None, a.file)
+            print(f"Proof folder written to {a.bundle} (check it with: unzip it, then sha256sum -c MANIFEST.sha256)")
+        except Exception as e:
+            print(f"ERROR: proof folder not written ({e})"); return 2
     return 0 if ok else 1
 
 

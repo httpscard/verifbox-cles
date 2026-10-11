@@ -1,5 +1,6 @@
 Public keys: https://verifbox.com/.well-known/verifbox-cles.json
   SHA-256 of the key file: e0f8ef8020965dca46c973a84d5d78ff52c9580c1c5979886bab2cb0f15c565d
+  Keys and revocation status as loaded now, 2026-10-11 17:11 UTC
 
 Proof 54b07a24cc8d404da5a127dfa2d818f6  |  timestamp 2026-10-10T18:53:10.995Z  |  key 258e57366bcdb6ce
   [PASS] Key file matches its independent publication (_verifbox.internetidentitycard.com, DNSSEC-validated)

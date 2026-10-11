@@ -1,6 +1,6 @@
 # VerifBox — reproducible validation report
 
-**Version 1.2 — 11 October 2026.** Everything in this folder can be re-run by anyone, without an account and without trusting the result shown by verifbox.com. The expected outputs recorded in `expected/` were produced on 11 October 2026 with the verifiers published in this repository; the Bitcoin blocks named below are public and permanent.
+**Version 1.3 — 11 October 2026.** Everything in this folder can be re-run by anyone, without an account and without trusting the result shown by verifbox.com. The expected outputs recorded in `expected/` were produced on 11 October 2026 with the verifiers published in this repository; the Bitcoin blocks named below are public and permanent.
 
 Operator: HTTPS CARD — INTERNET IDENTITY CARD LIMITED (England and Wales no. 09168431). VerifBox and IIC TSA are operated by the same company; IIC TSA is designed to RFC 3161 / RFC 5816 and is not a qualified trust service. This report demonstrates that the published mechanisms work together; it is not an independent audit.
 
@@ -91,6 +91,18 @@ python3 ../verifbox_verify.py test-key-shifted-time.json demo-file.txt \
     --keys test-key.json --root <KEYID>:<SHA256> --offline --iic-root ../demo-iic-tsa/iic-tsa-root.pem
 ```
 `<KEYID>:<SHA256>` is printed by the generator (for the committed files: `519a044a17d3f175:519a044a17d3f175ca160b1d412a5d839baaa805eb4c5f981806ba77eb1b38ff`). Expected: `expected/11-test-key-shifted-time.txt` — both signatures `[PASS]`, the real token `[PASS]`, exactly one `[FAIL]`: `The token time differs from the signed time by 180 s (more than 10 s)`, and `RESULT: NOT VALID`. Without `--root` the verifier refuses the unknown key, which is the intended default; `--offline` is used because a local key file cannot match the DNS record of the production key (that mismatch would otherwise be reported as a second, unrelated FAIL).
+
+### 2.8 Proof folder (`--bundle`)
+
+The verifier can gather every element of a proof in one folder that a third party can examine without VerifBox (specification, section 12). The Verify page on verifbox.com produces the same folder, in the browser.
+
+```bash
+python3 ../verifbox_verify.py control-file.verifbox.json control-file.txt --bundle control-folder.zip
+unzip control-folder.zip && cd verifbox-dossier-5013a88d && sha256sum -c MANIFEST.sha256 && cat summary.json
+```
+Expected: `expected/12-proof-folder.txt` — fourteen files `OK`, and a summary naming block **970834** for both anchors, the token serial `361369691b…a01d`, policy `1.3.6.1.4.1.67100.1.1.1.1` and root `8652e3d1…d3b9`. The folder adds no signature; its `README.txt` lists the commands of sections 2.1 to 2.4, run on the files it contains. `verification-report.txt` and `summary.json` are records of the run, not elements of proof.
+
+Outputs `01` and `06` to `10` were re-recorded on 11 October 2026 with the current verifier, which also confirms the anchor of the attestation against the explorers and prints when the keys were loaded; the verdicts are unchanged.
 
 ## 3. What this report does not show
 
