@@ -9,7 +9,7 @@
   <a href="https://verifbox.com/fr">Français</a>
 </p>
 
-# VerifBox public signing keys
+# VerifBox — public signing keys, verifiers and validation
 
 This repository publishes the public signing keys of **VerifBox** (https://verifbox.com), a file timestamping service operated by HTTPS CARD — Internet Identity Card Limited (company no. 09168431, London).
 
@@ -128,7 +128,7 @@ Keys are never deleted. On rotation, the old key signs the new one, the old key 
 
 ---
 
-# Clés publiques de signature de VerifBox
+# VerifBox — clés publiques de signature, vérificateurs et validation
 
 Ce dépôt publie les clés publiques de signature de **VerifBox** (https://verifbox.com), service d’horodatage de fichiers édité par HTTPS CARD — Internet Identity Card Limited (société n° 09168431, Londres).
 
