@@ -15,6 +15,12 @@ This repository publishes the public signing keys of **VerifBox** (https://verif
 
 It exists so that anyone can check the VerifBox key file **without trusting verifbox.com alone**: the same fingerprint is published here, in the DNS of internetidentitycard.com (DNSSEC-signed), and on verifbox.com. A substituted key file would not match all three.
 
+## Legal status
+
+> **Simple electronic timestamp, not qualified** within the meaning of Regulation (EU) No 910/2014 (eIDAS). A VerifBox proof **creates no legal presumption**: its evidential value is assessed by the court. IIC TSA, which issues the time-stamp token, is operated by the same company and is not an independent third party. The two Bitcoin anchors, for their part, depend on no company: they show that the file and the signed attestation existed no later than their block.
+>
+> *Horodatage électronique simple, non qualifié au sens du règlement (UE) n° 910/2014 (eIDAS). Une preuve VerifBox ne crée aucune présomption légale : sa valeur probante est appréciée par le juge. IIC TSA, qui émet le jeton d’horodatage, est exploité par la même société et n’est pas un tiers indépendant. Les deux ancrages Bitcoin, eux, ne dépendent d’aucune société : ils établissent que le fichier et l’attestation signée existaient au plus tard à la date de leur bloc.*
+
 ## What you get
 
 <table>
@@ -25,7 +31,7 @@ It exists so that anyone can check the VerifBox key file **without trusting veri
 </td>
 <td valign="top">
 <p>Three files, each with its own role. You keep them: VerifBox keeps no copy.</p>
-<p><strong>The proof</strong> <code>.verifbox.json</code><br>The authoritative document: the file’s fingerprint, the date and time, both signatures and, since 10 October 2026, the IIC TSA time-stamp token (RFC 3161). Issued immediately.</p>
+<p><strong>The proof</strong> <code>.verifbox.json</code><br>The authoritative document: the file’s fingerprint, the date and time, both signatures and the IIC TSA time-stamp token (RFC 3161). Issued immediately.</p>
 <p><strong>The Bitcoin anchors</strong> <code>.ots</code><br>Two OpenTimestamps proofs, one for the file fingerprint and one for the signed attestation, recorded in the Bitcoin blockchain and verifiable without VerifBox. Completed within a few hours.</p>
 <p><strong>The certificate</strong> <code>PDF</code><br>A readable presentation of everything, with links to the Bitcoin block and transaction, to attach to a file or send to an adviser. Available once the anchor is confirmed.</p>
 <p><a href="https://verifbox.com/example-certificate-verifbox.pdf"><strong>View the example PDF →</strong></a></p>
@@ -109,14 +115,13 @@ Gathers in one `.zip` everything needed to examine a proof without VerifBox: the
 
 ## IIC TSA time-stamp token
 
-Since 10 October 2026, each proof also carries an RFC 3161 time-stamp token over the file fingerprint, issued by **IIC TSA** (https://tsa.internetidentitycard.com/tsa). IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service. Its root certificate (`IIC TSA Root R1`, SHA-256 `86:52:E3:D1:3E:72:5F:7C:75:7C:FA:05:3D:64:13:60:AC:A4:43:CF:6C:09:D7:D6:DD:D4:4B:EA:85:1E:D3:B9`) and the root revocation list are published at https://verifbox.com/.well-known/iic-tsa.json. To check a token with OpenSSL alone:
+Each proof also carries an RFC 3161 time-stamp token over the file fingerprint, issued by **IIC TSA** (https://tsa.internetidentitycard.com/tsa). IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service. Its root certificate (`IIC TSA Root R1`, SHA-256 `86:52:E3:D1:3E:72:5F:7C:75:7C:FA:05:3D:64:13:60:AC:A4:43:CF:6C:09:D7:D6:DD:D4:4B:EA:85:1E:D3:B9`) and the root revocation list are published at https://verifbox.com/.well-known/iic-tsa.json. To check a token with OpenSSL alone:
 
 ```bash
 python3 verifbox_verify.py proof.verifbox.json original-file --tsr token.tsr
 openssl ts -verify -data original-file -in token.tsr -CAfile iic-tsa-root.pem
 ```
 
-Proofs issued before 10 October 2026 do not contain a token; they stay valid.
 
 ## Bundled cryptographic libraries
 

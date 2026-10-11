@@ -2,7 +2,7 @@
 
 **Version 1.3 — 11 October 2026.** Everything in this folder can be re-run by anyone, without an account and without trusting the result shown by verifbox.com. The expected outputs recorded in `expected/` were produced on 11 October 2026 with the verifiers published in this repository; the Bitcoin blocks named below are public and permanent.
 
-Operator: HTTPS CARD — INTERNET IDENTITY CARD LIMITED (England and Wales no. 09168431). VerifBox and IIC TSA are operated by the same company; IIC TSA is designed to RFC 3161 / RFC 5816 and is not a qualified trust service. This report demonstrates that the published mechanisms work together; it is not an independent audit.
+Operator: HTTPS CARD — INTERNET IDENTITY CARD LIMITED (England and Wales no. 09168431). VerifBox and IIC TSA are operated by the same company; IIC TSA is designed to RFC 3161 / RFC 5816 and is not a qualified trust service. This report demonstrates that the published mechanisms work together; it is not an independent audit. A VerifBox proof is a simple, non-qualified electronic timestamp (eIDAS) and creates no legal presumption; its evidential value is assessed by the court. The Bitcoin anchors are the only elements that depend on no company.
 
 ## 1. Test vectors
 

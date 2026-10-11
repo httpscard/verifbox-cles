@@ -13,7 +13,7 @@ A real VerifBox proof, issued by the production service on 10 October 2026 — t
 | Bitcoin block of both anchors | 970,811 (2026-10-10 19:00:07 UTC) |
 | Transaction | `ea43d20ad4f936319bb48ca241975853a80705b3a47b0c5c7abc897b3deec525` |
 
-IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service.
+IIC TSA is operated by the same company as VerifBox and is not an independent third party; it is not an eIDAS-qualified trust service. A VerifBox proof creates no legal presumption: its evidential value is assessed by the court. The two Bitcoin anchors depend on no company.
 
 ## Files
 
