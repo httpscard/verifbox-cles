@@ -49,6 +49,14 @@ The [`demo-iic-tsa/`](demo-iic-tsa/) folder contains a real proof of 10 October 
 
 ## Check the key file
 
+Each published version of `verifbox-cles.json` is also anchored in the Bitcoin blockchain with OpenTimestamps: `verifbox-cles.json.ots` (here and at https://verifbox.com/.well-known/verifbox-cles.json.ots). It proves that this exact key file existed before a given block, independently of this repository, of the DNS and of verifbox.com:
+
+```bash
+ots verify -f verifbox-cles.json verifbox-cles.json.ots
+```
+
+(The anchor of a freshly published key file is "pending" for a few hours, until its Bitcoin block exists; `ots upgrade verifbox-cles.json.ots` fetches the completed proof.)
+
 ```bash
 curl -s https://verifbox.com/.well-known/verifbox-cles.json | shasum -a 256
 dig +short TXT _verifbox.internetidentitycard.com

@@ -27,7 +27,7 @@ and their SHA-256 fingerprint is printed, so you can compare it with independent
 Specification: https://verifbox.com/specification
 Exit code: 0 = valid, 1 = invalid, 2 = error.  Licence: MIT.
 """
-import argparse, base64, hashlib, json, sys, urllib.parse, urllib.request
+import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request
 from datetime import datetime
 
 try:
@@ -105,6 +105,18 @@ def check_schema(proof):
 def attestation_digest(content, sigs):
     """Digest of the signed attestation, anchored in Bitcoin as the second anchor (specification, section 7)."""
     return hashlib.sha256(ATTESTATION_PREFIX + canonical(content) + b"\n" + sigs["ed25519"].encode() + b"\n" + sigs["ml_dsa_65"].encode()).hexdigest()
+
+
+def explorers_merkle_root(height):
+    """Merkle root of a Bitcoin block according to two independent public explorers; {} if none answers."""
+    found = {}
+    for name, base in (("blockstream.info", "https://blockstream.info/api"), ("mempool.space", "https://mempool.space/api")):
+        try:
+            with urllib.request.urlopen(f"{base}/block-height/{height}", timeout=15) as r: block_hash = r.read().decode().strip()
+            with urllib.request.urlopen(f"{base}/block/{block_hash}", timeout=15) as r: found[name] = json.load(r)["merkle_root"]
+        except Exception:
+            pass
+    return found
 
 
 def ots_digest(ots):
@@ -415,8 +427,39 @@ def main():
         if a.ots:
             open(a.ots, "wb").write(ots)
             check(None, f"Anchor written to {a.ots}: run  ots verify {a.ots}  (with the original file alongside)")
-        else:
-            check(None, "Bitcoin anchor present: use --ots FILE.ots, then 'ots verify' to check it against Bitcoin.")
+        # If the OpenTimestamps client is installed and the original file is at hand, check the anchor against
+        # Bitcoin right away: "ots verify" is the only control that establishes the block, the structural check above does not.
+        ots_cli = shutil.which("ots")
+        if ots_cli and a.file:
+            with tempfile.NamedTemporaryFile(suffix=".ots", delete=False) as tmp:
+                tmp.write(ots); tmp_path = tmp.name
+            try:
+                # Without a local Bitcoin node, "ots --no-bitcoin verify" walks the proof and names the block and the
+                # merkle root it commits to; the merkle root is then compared with two public block explorers.
+                r = subprocess.run([ots_cli, "--no-bitcoin", "verify", "-f", a.file, tmp_path], capture_output=True, text=True, timeout=120)
+                out = (r.stdout + r.stderr).strip()
+                m = re.search(r"block (\d+) has merkleroot ([0-9a-f]{64})", out)
+                if m:
+                    height, root = int(m.group(1)), m.group(2)
+                    agree = explorers_merkle_root(height)
+                    if agree and all(v == root for v in agree.values()):
+                        check(True, f"Bitcoin anchor of the file confirmed: block {height}, merkle root {root[:16]}... matches " + " and ".join(agree))
+                    elif agree:
+                        check(False, f"Bitcoin anchor of the file does NOT match block {height}: merkle root {root} vs " + ", ".join(f"{k}: {v}" for k, v in agree.items()))
+                    else:
+                        check(None, f"Bitcoin anchor commits to block {height} (merkle root {root}); no block explorer reachable to confirm it. "
+                                    f"Check that block {height} has this merkle root, or run 'ots verify' with a Bitcoin node.")
+                elif "Pending" in out or "pending" in out:
+                    check(None, "Bitcoin anchor pending: not yet in a block (come back later and load the completed proof).")
+                else:
+                    check(None, "ots verify did not establish a block: " + out.replace("\n", " | "))
+            except Exception as e:
+                check(None, f"ots verify could not run ({e.__class__.__name__})")
+            finally:
+                os.unlink(tmp_path)
+        elif not a.ots:
+            check(None, "Bitcoin anchor present: structural check only. Install the OpenTimestamps client (pip install opentimestamps-client) "
+                        "and give the original file, or use --ots FILE.ots then 'ots verify', to establish the Bitcoin block.")
     else:
         check(None, "No Bitcoin anchor in this proof.")
     # Second anchor: the signed attestation itself.
@@ -436,6 +479,8 @@ def main():
 
     # IIC TSA time-stamp token (RFC 3161), over the file fingerprint.
     token = (proof.get("jetons") or {}).get("iic_tsa")
+    if not token:
+        check(None, "No IIC TSA time-stamp token in this proof (optional element, added since 10 October 2026): the signed time rests on the VerifBox signature alone.")
     if token:
         try:
             tsr = base64.b64decode(token.get("tsr", ""), validate=True)
@@ -466,7 +511,8 @@ def main():
                 check(True if r["policy"] != IIC_TSA_TEST_POLICY else None,
                       f"{label}: {r['time'].strftime('%Y-%m-%d %H:%M:%S')} UTC{acc}, serial {r['serial']}, revocation: {r['revocation']}")
                 gap = abs((r["time"] - parse_time(c["horodatage"])).total_seconds())
-                if gap > 10: check(None, f"The token time differs from the signed time by {gap:.0f} s")
+                check(gap <= 10, f"Token time and signed time agree to within 10 s (gap {gap:.0f} s)" if gap <= 10 else
+                      f"The token time differs from the signed time by {gap:.0f} s (more than 10 s): the proof is inconsistent")
         except ValueError as e:
             check(False, f"IIC TSA time-stamp token INVALID ({e})")
         except Exception as e:
