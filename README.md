@@ -103,7 +103,7 @@ pip install cryptography dilithium-py
 python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
 ```
 
-The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list), without contacting the VerifBox service. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256. Specification: https://verifbox.com/specification
+The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list). It never calls the VerifBox API: by default it downloads the static public key file from verifbox.com and cross-checks it against DNS; with `--keys` it uses a local copy, and with `--offline` it makes no network request at all. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256. Specification: https://verifbox.com/specification
 
 ### Proof folder for a third party
 
@@ -129,7 +129,7 @@ openssl ts -verify -data original-file -in token.tsr -CAfile iic-tsa-root.pem
 
 ## Independent archive
 
-A permanent copy of this repository is kept by **Software Heritage** (Inria, with UNESCO support), so that the verifiers, the public key file and the specification remain available even if GitHub, verifbox.com or the operator disappear. Archive: https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/httpscard/verifbox-cles. Snapshot of 12 October 2026: `swh:1:snp:5e7efe41e66cb024cb33357088f0059ad4cbc375`. Later versions are archived on request after each update.
+A permanent copy of this repository is kept by **Software Heritage** (Inria, with UNESCO support), so that the verifiers, the public key file and the validation vectors remain available even if GitHub, verifbox.com or the operator disappear. Archive: https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/httpscard/verifbox-cles. Snapshot of 12 October 2026: `swh:1:snp:5e7efe41e66cb024cb33357088f0059ad4cbc375`. Later versions are archived on request after each update.
 
 ## Bundled cryptographic libraries
 
@@ -163,6 +163,6 @@ Clé actuelle : `258e57366bcdb6ce`, active depuis le 3 octobre 2026 à 06:20 UTC
 
 **Dossier de preuve (.zip)** : la page Vérifier de verifbox.com, une fois l’ancrage Bitcoin confirmé, télécharge un seul fichier `.zip` contenant tout ce qu’il faut pour examiner la preuve sans VerifBox : le certificat PDF, l’image à partager et son texte (seulement si le fichier d’origine a été vérifié), le LISEZ-MOI, la preuve, l’attestation signée, les deux ancrages Bitcoin, le jeton IIC TSA, les clés publiques et leur ancrage, la racine IIC TSA et sa liste de révocation, `MANIFEST.sha256`, un résumé et le rapport de vérification ; une copie du fichier d’origine seulement si vous cochez la case (le dossier est créé dans votre navigateur : le fichier n’est jamais envoyé à VerifBox). Détail fichier par fichier : image ci-dessus (section *Proof folder for a third party*) ou https://verifbox.com/fr, section « Votre dossier de preuve, fichier par fichier ». En ligne de commande : `python3 verifbox_verify.py preuve.verifbox.json fichier --bundle dossier.zip` (sans certificat ni image).
 
-**Archive indépendante** : une copie permanente de ce dépôt est conservée par Software Heritage (Inria, avec le soutien de l’UNESCO), pour que les vérificateurs, le fichier de clés et la spécification restent disponibles même si GitHub, verifbox.com ou l’exploitant disparaissaient. Instantané du 12 octobre 2026 : `swh:1:snp:5e7efe41e66cb024cb33357088f0059ad4cbc375`.
+**Archive indépendante** : une copie permanente de ce dépôt est conservée par Software Heritage (Inria, avec le soutien de l’UNESCO), pour que les vérificateurs, le fichier de clés et les vecteurs de validation restent disponibles même si GitHub, verifbox.com ou l’exploitant disparaissaient. Instantané du 12 octobre 2026 : `swh:1:snp:5e7efe41e66cb024cb33357088f0059ad4cbc375`.
 
 Autres méthodes : voir ci-dessus, ou https://verifbox.com/fr/specification
