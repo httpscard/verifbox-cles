@@ -375,7 +375,8 @@ def bundle_readme(r, en):
     orig = ("original/" + r["original_file_name"]) if r["original_file_included"] else ("ORIGINAL_FILE" if en else "FICHIER_ORIGINAL")
     L = BUNDLE_TEXT["en" if en else "fr"]
     intro = L["intro"].format(id=r["proof_id"], t=r["signed_time"], f=f)
-    out = [L["t"], "=" * len(L["t"]), "", intro, "", L["files"], "-" * len(L["files"])]
+    hl = OFFLINE_PAGE_TEXT["en" if en else "fr"]
+    out = [L["t"], "=" * len(L["t"]), "", intro, "", hl[0], "-" * len(hl[0]), *hl[1:], "", L["files"], "-" * len(L["files"])]
     out += [f"  {n:<28} {d}" for n, d in r["contents"]]
     out += ["", L["steps"], "-" * len(L["steps"]),
             f"0. {L['s0']}", "   sha256sum -c MANIFEST.sha256        (macOS: shasum -a 256 -c MANIFEST.sha256)", "",
@@ -392,6 +393,11 @@ def bundle_readme(r, en):
             f"{L['spec']}: https://verifbox.com/specification", ""]
     return "\n".join(out)
 
+
+# Offline verification page: SHA-256 of the published version (update after each regeneration, see outils/construire_hors_ligne.py).
+OFFLINE_PAGE_SHA256 = "876bc3a95a224f8641abd340d1cc40ab9584c2d73c4f8173717fe553ba58a867"
+OFFLINE_PAGE_TEXT = {"en": ["Without technical skills", "This folder contains no program and no script (apart from your own file in original/, if you chose to include it).", "To check the proof by double-click, download the offline verification page from the public repository or from its archive:", "  https://github.com/httpscard/verifbox-cles/blob/main/verifbox-verify-offline.html", "  https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/httpscard/verifbox-cles", "Check its SHA-256 (version published when this folder was made):", "  876bc3a95a224f8641abd340d1cc40ab9584c2d73c4f8173717fe553ba58a867", "then open it in any browser (it works offline and makes no network request) and drop proof.verifbox.json and the original file onto it.", "It checks both signatures, the signing key and the file. It cannot confirm the Bitcoin anchors offline: see steps 2 and 3 below.", "If the repository now holds a newer version (for example after a key rotation), earlier versions remain in its history and in the Software Heritage archive."],
+                     "fr": ["Sans compétence technique", "Ce dossier ne contient aucun programme ni script (hormis votre propre fichier dans original/, si vous avez choisi de l'inclure).", "Pour vérifier la preuve d'un double-clic, téléchargez la page de vérification hors ligne depuis le dépôt public ou son archive :", "  https://github.com/httpscard/verifbox-cles/blob/main/verifbox-verify-offline.html", "  https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/httpscard/verifbox-cles", "Contrôlez son empreinte SHA-256 (version publiée à la création de ce dossier) :", "  876bc3a95a224f8641abd340d1cc40ab9584c2d73c4f8173717fe553ba58a867", "puis ouvrez-la dans n'importe quel navigateur (elle fonctionne sans connexion et ne fait aucune requête réseau) et déposez-y proof.verifbox.json et le fichier d'origine.", "Elle vérifie les deux signatures, la clé de signature et le fichier. Elle ne peut pas confirmer les ancrages Bitcoin hors ligne : voir les étapes 2 et 3 ci-dessous.", "Si le dépôt contient aujourd'hui une version plus récente (par exemple après une rotation de clé), les versions antérieures restent dans son historique et dans l'archive Software Heritage."]}
 
 BUNDLE_TEXT = {
  "en": dict(t="VerifBox proof folder", files="Contents", steps="How to check it yourself", trust="Where trust comes from", spec="Format specification",

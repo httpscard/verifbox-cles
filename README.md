@@ -90,7 +90,7 @@ Both must show the fingerprint above, which must also match `verifbox-cles.json`
 
 ### Without any technical skill: the offline page
 
-1. Download `verifbox-verify-offline.html` from this repository (button "Download raw file").
+1. Download `verifbox-verify-offline.html` from this repository (button "Download raw file"). Its SHA-256 is `876bc3a95a224f8641abd340d1cc40ab9584c2d73c4f8173717fe553ba58a867` (version of 11 October 2026; earlier and later versions remain in the repository history and in the Software Heritage archive).
 2. Double-click it: it opens in your browser, on Windows, Mac or Linux.
 3. Drop the proof (`.verifbox.json`) and the original file.
 
