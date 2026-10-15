@@ -48,6 +48,21 @@ PINNED_ROOTS = {"258e57366bcdb6ce": "258e57366bcdb6ce16cc22fe972c638346de2a54153
 MAX_PROOF_SIZE = 1 << 20
 # IIC TSA: trusted root certificates, by SHA-256 of their DER encoding.
 PINNED_IIC_TSA_ROOTS = {"8652e3d13e725f7c757cfa053d641360aca443cf6c09d7d6ddd44bea851ed3b9": "IIC TSA Root R1 (production, offline ceremony of 10 October 2026)"}
+# The certificates themselves (public, DER, base64), so that --offline checks the token without any file:
+# each one is still accepted only if its SHA-256 is in PINNED_IIC_TSA_ROOTS.
+EMBEDDED_IIC_TSA_ROOTS = [(
+    "MIICPDCCAcOgAwIBAgIRAOZLDO5cKLkIuQOkzl7w9XUwCgYIKoZIzj0EAwMwXTELMAkGA1UEBhMC"
+    "R0IxNDAyBgNVBAoMK0hUVFBTIENBUkQgLSBJTlRFUk5FVCBJREVOVElUWSBDQVJEIExJTUlURUQx"
+    "GDAWBgNVBAMMD0lJQyBUU0EgUm9vdCBSMTAgFw0yNjEwMTAwMDAwMDBaGA8yMDU2MTAwOTIzNTk1"
+    "OVowXTELMAkGA1UEBhMCR0IxNDAyBgNVBAoMK0hUVFBTIENBUkQgLSBJTlRFUk5FVCBJREVOVElU"
+    "WSBDQVJEIExJTUlURUQxGDAWBgNVBAMMD0lJQyBUU0EgUm9vdCBSMTB2MBAGByqGSM49AgEGBSuB"
+    "BAAiA2IABJnUJcjr0Kr+JGwy2ImJqpvy2aTSKbiqUD2Og8euZTtRqjUZJlMGDfiZjbu4VpQ4Wz1u"
+    "0nfHP419ysike1DmbFPdEyzRbbsZ7bxYr37qJMR5scjwiG5hr+KPxtGuHXdyG6NFMEMwEgYDVR0T"
+    "AQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFEQducP0bMQgyVqE9E8yblT1"
+    "DY+IMAoGCCqGSM49BAMDA2cAMGQCMG+SrYs5U7Rg1C15v/TXp/kkSak7BM6YMYBOyZ4OaveBt2hN"
+    "f6WUQ+n7Y3lb0hOAbgIwbXIPxVU78HBcDUQrsGp95nD1oN071GKBHnlx4v8SJEO70OugJ6VX8tqH"
+    "mRWK7UIE"
+)]
 IIC_TSA_POLICIES = ["1.3.6.1.4.1.67100.1.1.1.1"]
 IIC_TSA_TEST_POLICY = "1.3.6.1.4.1.67100.1.1.9.1"
 IIC_TSA_TRUST_URL = "https://verifbox.com/.well-known/iic-tsa.json"
@@ -650,7 +665,7 @@ def main():
             if a.iic_root:
                 candidates = [pem_to_der(open(a.iic_root, "rb").read())]
             elif a.offline:
-                candidates = []
+                candidates = [base64.b64decode(x) for x in EMBEDDED_IIC_TSA_ROOTS]
             else:
                 with urllib.request.urlopen(IIC_TSA_TRUST_URL, timeout=15) as r:
                     trust = json.load(r)

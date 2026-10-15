@@ -103,7 +103,7 @@ pip install cryptography dilithium-py
 python3 verifbox_verify.py proof.verifbox.json original-file --ots anchor.ots
 ```
 
-The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list). It never calls the VerifBox API: by default it downloads the static public key file from verifbox.com and cross-checks it against DNS; with `--keys` it uses a local copy, and with `--offline` it makes no network request at all. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256. Specification: https://verifbox.com/specification
+The verifier (`verifbox_verify.py`, MIT licence) checks the file fingerprint, both signatures, the key lifecycle, the DNS publication and, when the proof carries one, the IIC TSA time-stamp token (signature, chain to the pinned IIC TSA root, time-stamping usage, revocation list). It never calls the VerifBox API: by default it downloads the static public key file from verifbox.com and cross-checks it against DNS; with `--keys` it uses a local copy, and with `--offline` it makes no network request at all. The VerifBox root key and the IIC TSA root certificate are pinned in the script by their SHA-256; the IIC TSA Root R1 certificate itself is also embedded, so that `--offline` checks the token with no extra file (since 15 October 2026; earlier versions needed `--iic-root`). Specification: https://verifbox.com/specification
 
 ### Proof folder for a third party
 
