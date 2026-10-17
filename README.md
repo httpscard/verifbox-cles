@@ -9,6 +9,11 @@
   <a href="https://verifbox.com/fr">Français</a>
 </p>
 
+<p align="center">
+  <a href="https://verifbox.com"><img src="verifbox-site.png" alt="The VerifBox website: timestamp a file in your browser, the file is never sent; dual signature (one post-quantum), two Bitcoin anchors and an RFC 3161 time-stamp token" width="100%"></a>
+  <br><sub><a href="https://verifbox.com">verifbox.com</a>: the file stays on your device, only its fingerprint is sent.</sub>
+</p>
+
 # VerifBox — public signing keys, verifiers and validation
 
 This repository publishes the public signing keys of **VerifBox** (https://verifbox.com), a file timestamping service operated by HTTPS CARD — Internet Identity Card Limited (company no. 09168431, London).
